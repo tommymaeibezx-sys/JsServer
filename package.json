@@ -1,6 +1,6 @@
 {
-  "name": "msm-server",
-  "version": "1.0.0",
+  "name": "msm-official-v3-backend",
+  "version": "3.0.0",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
