@@ -2,77 +2,103 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware para procesar textos planos y JSON, ya que algunos APKs envían datos sin formatear
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.text());
 
 let currentOnlinePlayers = 0;
 
-// Middleware de depuración: Te mostrará EXACTAMENTE qué ruta está buscando tu juego
+// Configuración Masiva de Recursos e Islas Requeridas
+const massiveTimeSeconds = 999999999 * 24 * 60 * 60;
+const exclusiveIslands = [
+    { "island_id": 1, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 },
+    { "island_id": 2, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 },
+    { "island_id": 3, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 },
+    { "island_id": 4, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 },
+    { "island_id": 5, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 },
+    { "island_id": 11, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 },
+    { "island_id": 12, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 },
+    { "island_id": 13, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 },
+    { "island_id": 14, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 },
+    { "island_id": 15, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 }
+];
+
+// Middleware de Diagnóstico Obligatorio
 app.use((req, res, next) => {
-    console.log(`[PETICIÓN RECIBIDA] Método: ${req.method} | Ruta original: ${req.originalUrl}`);
-    
+    console.log(`[PETICIÓN DETECTADA] URL: ${req.originalUrl} | Body: ${JSON.stringify(req.body)}`);
     if (currentOnlinePlayers >= 51) {
-        return res.status(503).json({ "status": "error", "message": "Servidor lleno." });
+        return res.status(503).json({ "status": 0, "error": "Server full" });
     }
     next();
 });
 
-// VARIABLES BASE DE CONFIGURACIÓN Masiva
-const massiveTimeSeconds = 999999999 * 24 * 60 * 60;
-const exclusiveIslands = [
-    { "island_id": 1, "name": "Plant Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
-    { "island_id": 2, "name": "Cold Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
-    { "island_id": 3, "name": "Air Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
-    { "island_id": 4, "name": "Water Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
-    { "island_id": 5, "name": "Earth Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
-    { "island_id": 11, "name": "Mirror Plant Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
-    { "island_id": 12, "name": "Mirror Cold Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
-    { "island_id": 13, "name": "Mirror Air Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
-    { "island_id": 14, "name": "Mirror Water Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
-    { "island_id": 15, "name": "Mirror Earth Island", "unlocked": true, "beds": 999999, "castle_level": 10 }
-];
-
-// INTERCEPTOR UNIVERSAL: Captura cualquier petición sospechosa si la ruta cambia en el APK
+// 1. MANEJO GLOBAL DE PETICIONES (Filtro Adaptativo)
 app.use((req, res, next) => {
     const url = req.originalUrl.toLowerCase();
-    
-    // Si la URL contiene palabras clave de login o verificación, forzamos la respuesta adecuada inmediatamente
-    if (url.includes('version') || url.includes('check')) {
-        return res.json({ "status": "success", "action": "none", "force_update": false, "server_version": "5.0.0" });
+
+    // Bypass de control de actualización e inicio de pasarela
+    if (url.includes('version') || url.includes('check') || url.includes('gate')) {
+        return res.json({
+            "status": 1,
+            "success": true,
+            "action": "none",
+            "force_update": false,
+            "server_version": "5.0.0",
+            "cc_ip": "127.0.0.1"
+        });
     }
-    
-    if (url.includes('login') || url.includes('auth') || url.includes('user')) {
+
+    // Login Anónimo / Estructura Nativa de Cuenta BBB
+    if (url.includes('login') || url.includes('auth') || url.includes('start')) {
         currentOnlinePlayers++;
         return res.json({
-            "status": "success",
-            "player_id": "anon_" + Math.floor(Math.random() * 100000),
-            "game_data": {
-                "account_type": "guest_anonymous",
+            "status": 1,
+            "success": true,
+            "session_id": "session_" + Math.floor(Math.random() * 999999),
+            "player_id": 12345678,
+            "user_data": {
+                "active": 1,
                 "level": 75,
-                "resources": { "coins": 999999999, "diamonds": 99999999, "keys": 99999999, "food": 999999999, "relics": 99999999, "stamina": 99999999 },
-                "islands": exclusiveIslands
+                "xp": 99999999,
+                "currency": {
+                    "coins": 999999999,
+                    "diamonds": 99999999,
+                    "keys": 99999999,
+                    "food": 999999999,
+                    "relics": 99999999,
+                    "stamina": 99999999
+                },
+                "islands": exclusiveIslands,
+                "monsters": []
             }
         });
     }
 
-    if (url.includes('shop') || url.includes('catalog')) {
-        return res.json({ "status": "success", "shop_items": [] }); // (Aquí se acopla tu lógica previa si pasa el filtro)
+    // Respuesta del catálogo de la Tienda Masiva
+    if (url.includes('shop') || url.includes('catalog') || url.includes('structures')) {
+        return res.json({
+            "status": 1,
+            "success": true,
+            "items": [
+                { "item_id": 90, "cost": 0, "currency": "coins", "duration": massiveTimeSeconds },
+                { "item_id": 91, "cost": 0, "currency": "coins", "duration": massiveTimeSeconds },
+                { "item_id": 92, "cost": 0, "currency": "coins", "duration": massiveTimeSeconds }
+            ]
+        });
     }
 
-    if (url.includes('save') || url.includes('progress')) {
-        return res.json({ "status": "success" });
+    // Simulación obligatoria de persistencia para el bucle de autoguardado del APK
+    if (url.includes('save') || url.includes('update') || url.includes('record')) {
+        return res.json({ "status": 1, "success": true });
     }
 
     next();
 });
 
-// Rutas estáticas de respaldo
-app.post('/api/version_check', (req, res) => res.json({ "status": "success", "action": "none", "force_update": false }));
-app.post('/api/player_login', (req, res) => res.json({ "status": "success" }));
+// Manejadores por defecto en caso de llamadas REST directas
+app.post('/api/version_check', (req, res) => res.json({ "status": 1, "success": true }));
+app.post('/api/player_login', (req, res) => res.json({ "status": 1, "success": true }));
 
 app.listen(PORT, () => {
-    console.log(`Servidor de Redirección Universal MSM Activo en puerto ${PORT}.`);
+    console.log(`Servidor de Protocolo Estricto MSM Operando en Puerto ${PORT}.`);
 });
  
