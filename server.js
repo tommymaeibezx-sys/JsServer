@@ -9,21 +9,21 @@ let currentOnlinePlayers = 0;
 const MAX_PLAYERS = 10;
 const massiveTimeSeconds = 999999999 * 24 * 60 * 60;
 
-// 1. ESTRUCTURA DE ISLAS ELEMENTALES Y ESPEJO FIJAS EN MEMORIA
+// Configuración numérica pura de islas elementales y espejo para v3.0.0
 const exclusiveIslands = [
-    { "island_id": 1, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
-    { "island_id": 2, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
-    { "island_id": 3, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
-    { "island_id": 4, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
-    { "island_id": 5, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
-    { "island_id": 11, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
-    { "island_id": 12, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
-    { "island_id": 13, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
-    { "island_id": 14, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
-    { "island_id": 15, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 }
+    { "island_id": 1, "unlocked": 1, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 2, "unlocked": 1, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 3, "unlocked": 1, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 4, "unlocked": 1, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 5, "unlocked": 1, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 11, "unlocked": 1, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 12, "unlocked": 1, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 13, "unlocked": 1, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 14, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 },
+    { "island_id": 15, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 }
 ];
 
-// 2. CATÁLOGO ESTÁTICO PRE-CONSTRUIDO (Evita retrasos de CPU de Render)
+// Catálogo estático optimizado para el motor antiguo
 const shopCatalog = [
     { "monster_id": 1, "cost_coins": 0, "cost_diamonds": 0, "time_left": massiveTimeSeconds, "type": "common" },
     { "monster_id": 2, "cost_coins": 0, "cost_diamonds": 0, "time_left": massiveTimeSeconds, "type": "common" },
@@ -32,24 +32,25 @@ const shopCatalog = [
     { "monster_id": 2090, "cost_coins": 0, "cost_diamonds": 0, "time_left": massiveTimeSeconds, "type": "epic" }
 ];
 
-// Cabeceras HTTP globales con tiempo de respuesta de microsegundos
+// Forzado de cabeceras HTTP limpias de tipo plano
 app.use((req, res, next) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Connection', 'keep-alive');
-    
     if (currentOnlinePlayers >= MAX_PLAYERS && !req.originalUrl.includes('logout')) {
-        return res.status(503).json({ "status": "error", "message": "Server full" });
+        return res.status(503).json({ "status": 0, "error": "Server full" });
     }
     next();
 });
 
-// INTERCEPTOR DIRECTO SIN LOGS PESADOS (Aumenta la velocidad de Render)
+// INTERCEPTOR DE PETICIONES CON ENVOLTORIO NATIVO "USER"
 app.all('*', (req, res) => {
     const action = (req.body.action || req.query.action || "").toLowerCase();
+    const url = req.originalUrl.toLowerCase();
 
-    // LOGIN DIRECTO CON RESPUESTA EN < 0.1 SEGUNDOS
-    if (action.includes('login') || action.includes('auth') || req.originalUrl.includes('login') || action.includes('start')) {
-        const inputUser = req.body.username || req.body.user || "";
+    console.log(`[ROUTE LOGGER v3.0.0] Action: ${action} | URL: ${url}`);
+
+    // LOGIN ADAPTATIVO (Fuerza la estructura nativa)
+    if (action.includes('login') || action.includes('auth') || url.includes('login') || action.includes('start')) {
+        const inputUser = req.body.username || req.body.user || req.body.email || "";
         const inputPass = req.body.password || req.body.pass || "";
         const isGuest = action.includes('guest') || req.body.guest || (!inputUser && !inputPass);
 
@@ -57,12 +58,13 @@ app.all('*', (req, res) => {
             currentOnlinePlayers++;
             
             return res.json({
-                "status": "success",
-                "session_id": "fast_token_2026",
-                "player_id": 88887777,
-                "age_gate_passed": true,
-                "terms_accepted": true,
-                "player_data": {
+                "status": 1,
+                "session_id": "session_secured_2026",
+                "player_id": 7777777,
+                "age_gate_passed": 1,
+                "terms_accepted": 1,
+                "privacy_accepted": 1,
+                "user": {
                     "username": isGuest ? "Invitado" : "2026",
                     "level": 75,
                     "coins": 999999999,
@@ -76,33 +78,34 @@ app.all('*', (req, res) => {
                 }
             });
         }
-        return res.json({ "status": "error", "message": "Usa Invitado o introduce 2026 con 123" });
+        return res.json({ "status": 0, "error": "Usa Invitado o introduce usuario 2026 con clave 123" });
     }
 
-    // RESPUESTA DE LA TIENDA
-    if (action.includes('shop') || action.includes('catalog') || req.originalUrl.includes('shop')) {
+    // RESPUESTA DEL MERCADO
+    if (action.includes('shop') || action.includes('catalog') || action.includes('items') || url.includes('shop')) {
         return res.json({
-            "status": "success",
+            "status": 1,
             "monsters": shopCatalog
         });
     }
 
-    // RESPUESTA DE BYPASS PARA CONTROL LEGAL Y REDIRECCIÓN RECURRENTE
+    // RESPUESTA GENERAL DE RED (Bypass legal y versión de control numérico)
     return res.json({
-        "status": "success",
+        "status": 1,
         "action": "none",
-        "force_update": false,
-        "age_gate_passed": true,
-        "terms_accepted": true,
+        "force_update": 0,
+        "age_gate_passed": 1,
+        "terms_accepted": 1,
+        "privacy_accepted": 1,
         "server_version": "3.0.0"
     });
 });
 
 app.post('/api/player_logout', (req, res) => {
     if (currentOnlinePlayers > 0) currentOnlinePlayers--;
-    res.json({ "status": "success" });
+    res.json({ "status": 1 });
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor MSM v3.0.0 optimizado para evitar timeout de 3 segundos.`);
+    console.log(`Servidor MSM v3.0.0 con Formato Estricto Numérico activo.`);
 });
