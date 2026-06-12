@@ -23,12 +23,11 @@ const universalIslands = [
     { "island_id": 15, "i": 15, "unlocked": 1, "u": 1, "castle_level": 10, "max_beds": 999999 }
 ];
 
-// IDs de Monstruos corregidos y completados (Naturales, Mágicos y Wubboxes)
+// LISTA DE MONSTRUOS COMPLETA RECONSTRUIDA (Naturales, Wubboxes, Mágicos)
 const baseMonsterIds = [
     1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
     30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 50, 51, 52, 53, 54,
-    70, 71, 72, 73, 74, 80, 81, 82, 83, 84,
-    90, 91, 92, 93, 94, 95, 96,
+    70, 71, 72, 73, 74, 80, 81, 82, 83, 84, 90, 91, 92, 93, 94, 95, 96,
     201, 202, 203, 204, 205, 211, 212, 213, 214, 215
 ];
 
@@ -48,39 +47,25 @@ app.use((req, res, next) => {
     next();
 });
 
-// 1. RESPUESTA RE-ESTRUCTURADA AL TEST HEAD
+// 1. RESPUESTA AL TEST HEAD DEL MOTOR GRAPHICO
 app.head('/', (req, res) => {
     res.status(200).end();
 });
 
-// 2. ENTRADA DEL XML DE PRODUCCIÓN COMPATIBLE (Usa rutas dinámicas sin protocolo estricto)
+// 2. RESPUESTA XML SECURE (Protocolo HTTPS Completo con Envoltorio Canónico de Producción)
 app.get('/', (req, res) => {
-    console.log("[RASTREO] Enviando XML oficial compatible");
+    console.log("[RASTREO] Enviando estructura XML Secure Canónica");
     res.setHeader('Content-Type', 'text/xml; charset=utf-8');
     
     const host = req.headers.host;
+    const secureBaseUrl = `https://${host}`;
 
-    // Formato de nodos legítimo de Big Blue Bubble en la era v3.X
-    const xmlConfig = `<?xml version="1.0" encoding="utf-8"?>
-<config>
-    <game_version>3.0.0</game_version>
-    <status>1</status>
-    <services>
-        <gateway>http://${host}/api</gateway>
-        <login>http://${host}/login</login>
-        <shop>http://${host}/shop</shop>
-    </services>
-    <legal>
-        <age_gate>1</age_gate>
-        <terms_accepted>1</terms_accepted>
-        <privacy_accepted>1</privacy_accepted>
-    </legal>
-</config>`;
+    const xmlConfig = `<?xml version="1.0" encoding="utf-8"?><config><game_version>3.0.0</game_version><status>1</status><services><gateway>${secureBaseUrl}/api</gateway><login>${secureBaseUrl}/login</login><shop>${secureBaseUrl}/shop</shop></services><legal><age_gate>1</age_gate><terms_accepted>1</terms_accepted><privacy_accepted>1</privacy_accepted></legal></config>`;
 
     return res.status(200).send(xmlConfig);
 });
 
-// 3. PROCESAMIENTO GENERAL DE RESPUESTAS SECUNDARIAS
+// 3. PROCESAMIENTO ADAPTATIVO DE ACCIONES DERIVADAS
 app.all('*', (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     const action = (req.body.action || req.query.action || "").toLowerCase();
@@ -88,6 +73,7 @@ app.all('*', (req, res) => {
 
     console.log(`[ACCIÓN DETECTADA] -> URL: ${req.originalUrl} | Action: ${action}`);
 
+    // INICIO DE SESIÓN INTEGRADO (User: 2026 / Pass: 123 o Invitado)
     if (action.includes('login') || action.includes('auth') || url.includes('login') || action.includes('start')) {
         const inputUser = req.body.username || req.body.user || "";
         const inputPass = req.body.password || req.body.pass || "";
@@ -117,6 +103,7 @@ app.all('*', (req, res) => {
         return res.json({ "status": 0, "error": "credenciales_invalidas" });
     }
 
+    // PETICIONES DE LA TIENDA
     if (action.includes('shop') || action.includes('catalog') || url.includes('shop')) {
         return res.json({
             "status": 1,
@@ -125,6 +112,7 @@ app.all('*', (req, res) => {
         });
     }
 
+    // RETORNO BASE
     return res.json({
         "status": 1,
         "success": true,
@@ -133,6 +121,6 @@ app.all('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor MSM XML-Compatible levantado en puerto ${PORT}.`);
+    console.log(`Servidor MSM XML-Secure Activo en puerto ${PORT}.`);
 });
  
