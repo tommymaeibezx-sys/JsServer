@@ -41,7 +41,7 @@ for (const id of baseMonsterIds) {
     }
 }
 
-// Interceptor global con depuración limpia
+// Interceptor global de red
 app.use((req, res, next) => {
     console.log(`[RASTREO] Ruta: ${req.originalUrl} | Método: ${req.method}`);
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -52,7 +52,11 @@ app.use((req, res, next) => {
     next();
 });
 
-// CORRECCIÓN DE LA RAÍZ PRINCIPAL: Responde de forma exitosa al Ping inicial del juego
+// 1. SOLUCIÓN COMPLETA PARA LA RAÍZ (Soporta HEAD y GET de verificación inicial)
+app.head('/', (req, res) => {
+    res.status(200).end(); // Responde con éxito vacío e inmediato al test HEAD del juego
+});
+
 app.get('/', (req, res) => {
     return res.json({
         "status": 1,
@@ -66,12 +70,12 @@ app.get('/', (req, res) => {
     });
 });
 
-// MANEJADOR UNIVERSAL PARA EL RESTO DE PETICIONES
+// 2. RECEPTOR ADAPTATIVO PARA ACCIONES COMPLEJAS
 app.all('*', (req, res) => {
     const action = (req.body.action || req.query.action || "").toLowerCase();
     const url = req.originalUrl.toLowerCase();
 
-    // 1. INICIO DE SESIÓN
+    // INTERCEPCIÓN DEL LOGIN
     if (action.includes('login') || action.includes('auth') || url.includes('login') || action.includes('start')) {
         const inputUser = req.body.username || req.body.user || "";
         const inputPass = req.body.password || req.body.pass || "";
@@ -113,7 +117,7 @@ app.all('*', (req, res) => {
         return res.json({ "status": 0, "error": "invalid_credentials" });
     }
 
-    // 2. MERCADO COMPLETO
+    // INTERCEPCIÓN DEL MERCADO
     if (action.includes('shop') || action.includes('catalog') || url.includes('shop')) {
         return res.json({
             "status": 1,
@@ -124,7 +128,7 @@ app.all('*', (req, res) => {
         });
     }
 
-    // 3. RESPUESTA BASE LEGAL ADAPTATIVA
+    // RESPUESTA BASE DE TRÁFICO
     return res.json({
         "status": 1,
         "success": true,
@@ -140,5 +144,6 @@ app.all('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor MSM v3.0.0 con respuesta raíz('/') activa en puerto ${PORT}.`);
+    console.log(`Servidor MSM v3.0.0 adaptado para soportar llamadas HEAD en puerto ${PORT}.`);
 });
+ 
