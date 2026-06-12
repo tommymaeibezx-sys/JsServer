@@ -2,7 +2,6 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// La v3.0.0 envía cuerpos codificados en URL por defecto
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -10,7 +9,7 @@ let currentOnlinePlayers = 0;
 const MAX_PLAYERS = 32;
 const massiveTimeSeconds = 999999999 * 24 * 60 * 60;
 
-// Configuración de Islas Elementales y Espejo adaptadas al motor de la v3.0.0
+// Configuración de Islas en Formato Array Nativo v3.0.0
 const exclusiveIslands = [
     { "island_id": 1, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 },
     { "island_id": 2, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 },
@@ -24,7 +23,6 @@ const exclusiveIslands = [
     { "island_id": 15, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 }
 ];
 
-// Lista de monstruos de las islas elementales con Wubboxes
 const elementalMonsters = [
     { "id": 1 }, { "id": 2 }, { "id": 3 }, { "id": 4 }, { "id": 5 },
     { "id": 10 }, { "id": 11 }, { "id": 12 }, { "id": 13 }, { "id": 14 },
@@ -47,69 +45,76 @@ for (const monster of elementalMonsters) {
     }
 }
 
-// Interceptor del Gateway de la v3.0.0
+// Filtro General e Inyección de Cabeceras
 app.use((req, res, next) => {
-    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
     
-    // Captura el parámetro de acción del juego clásico de BBB
-    const action = req.body.action || req.query.action || "";
-    console.log(`[GATEWAY v3.0.0] Acción detectada: ${action}`);
-
-    if (currentOnlinePlayers >= MAX_PLAYERS) {
-        return res.status(503).json({ "status": 0, "error": "Servidor lleno. Límite de 32 alcanzado." });
+    // Verificación de capacidad máxima
+    if (currentOnlinePlayers >= MAX_PLAYERS && !req.originalUrl.includes('logout')) {
+        return res.status(503).json({ "status": 0, "error": "Server full" });
     }
+    next();
+});
 
-    // 1. LOGIN DE USUARIO CENTRALIZADO (User: 123 | Pass: 123)
+// Manejador del Bucle Principal del Servidor Clásico
+app.all('*', (req, res) => {
+    // Buscar la acción en cualquier sección de la petición
+    const action = req.body.action || req.query.action || "";
+    console.log(`[ROUTE LOGGER] Solicitud: ${req.originalUrl} | Action: ${action}`);
+
+    // 1. LOGIN DE LA CUENTA COMPARTIDA (User: 123 / Pass: 123)
     if (action.includes('login') || action.includes('auth') || req.originalUrl.includes('login')) {
-        const inputUser = req.body.username || req.body.user || req.body.email || "123";
+        const inputUser = req.body.username || req.body.user || "123";
         const inputPass = req.body.password || req.body.pass || "123";
 
         if (inputUser === "123" && inputPass === "123") {
             currentOnlinePlayers++;
+            
+            // Retorna la estructura plana que el compilador C++ de la v3.0.0 requiere
             return res.json({
                 "status": 1,
-                "success": true,
-                "session_id": "session_secured_123",
-                "player_id": 88887777,
-                "user_data": {
-                    "username": "123",
-                    "level": 75,
-                    "xp": 99999999,
-                    "currency": {
-                        "coins": 999999999, "diamonds": 99999999, "keys": 99999999, 
-                        "food": 999999999, "relics": 99999999, "stamina": 99999999
-                    },
-                    "islands": exclusiveIslands,
-                    "monsters": []
+                "session_id": "secured_session_token_123",
+                "player_id": 7777777,
+                "current_server_time": Math.floor(Date.now() / 1000),
+                "data": {
+                    "user": {
+                        "name": "123",
+                        "level": 75,
+                        "xp": 99999999,
+                        "coins": 999999999,
+                        "diamonds": 99999999,
+                        "keys": 99999999,
+                        "food": 999999999,
+                        "relics": 99999999,
+                        "stamina": 99999999,
+                        "islands": exclusiveIslands,
+                        "monsters": []
+                    }
                 }
             });
         } else {
-            return res.json({ "status": 0, "success": false, "error": "Datos inválidos. Introduce 123 y 123" });
+            return res.json({ "status": 0, "error": "Datos Incorrectos. Usa 123 y 123" });
         }
     }
 
-    // 2. DETECTAR LLAMADAS A LA TIENDA O CONFIGURACIONES
-    if (action.includes('shop') || action.includes('catalog') || action.includes('get_items')) {
-        return res.json({ "status": 1, "success": true, "items": shopCatalog });
+    // 2. PETICIONES DE LA TIENDA E ITEMS
+    if (action.includes('shop') || action.includes('catalog') || action.includes('items')) {
+        return res.json({
+            "status": 1,
+            "items": shopCatalog
+        });
     }
 
-    // 3. RESPUESTA UNIVERSAL PARA BYPASS DE ACTUALIZACIÓN Y LLAMADAS DE RUTINA
+    // 3. RESPUESTA BASE (Evita Timeouts y saltos de versión)
     return res.json({
         "status": 1,
         "success": true,
         "action": "none",
         "force_update": false,
-        "server_version": "3.0.0" 
+        "server_version": "3.0.0"
     });
 });
 
-// Desconexión limpia
-app.post('/api/player_logout', (req, res) => {
-    if (currentOnlinePlayers > 0) currentOnlinePlayers--;
-    res.json({ "status": 1, "success": true });
-});
-
 app.listen(PORT, () => {
-    console.log(`Servidor MSM v3.0.0 emulado con éxito. Capacidad máxima: 32 usuarios.`);
+    console.log(`Servidor de Entrada MSM v3.0.0 inicializado. Límite: 32.`);
 });
- 
