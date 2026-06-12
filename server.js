@@ -23,14 +23,13 @@ const exclusiveIslands = [
     { "island_id": 15, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 }
 ];
 
-// IDs de Monstruos compactados para evitar desbordamiento de búfer
+// IDs de Monstruos compactados (Elementales, Mágicos, Raros, Épicos y Wubbox)
 const baseMonsterIds = [
-    1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, // Naturales básicos
-    30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 50, 51, 52, 53, 54, // Jefes
-    70, 71, 72, 73, 74, 80, 81, 82, 83, 84, // Míticos / Estacionales
-    90, 91, 92, 93, 94, 95, 96, // Wubboxes
-    201, 202, 203, 204, 205, // Mágicos single
-    211, 212, 213, 214, 215  // Mágicos híbridos
+    1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+    30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 50, 51, 52, 53, 54,
+    70, 71, 72, 73, 74, 80, 81, 82, 83, 84,
+    90, 91, 92, 93, 94, 95, 96,
+    201, 202, 203, 204, 205, 211, 212, 213, 214, 215
 ];
 
 const shopCatalog = [];
@@ -54,9 +53,23 @@ app.all('*', (req, res) => {
     const action = (req.body.action || req.query.action || "").toLowerCase();
     const url = req.originalUrl.toLowerCase();
 
-    console.log(`[FAST LOG] Action: ${action}`);
+    console.log(`[ROUTE] Action: ${action} | URL: ${url}`);
 
-    // LOGIN ULTRA RÁPIDO (Carga en < 1 segundo)
+    // 1. BYPASS DE EDAD, TÉRMINOS Y DESCARGA DE DATOS INICIALES
+    if (action.includes('age') || action.includes('terms') || action.includes('policy') || action.includes('download')) {
+        return res.json({
+            "status": "success",
+            "action": "none",
+            "age_gate_passed": true,
+            "terms_accepted": true,
+            "privacy_accepted": true,
+            "needs_download": false,
+            "download_url": "",
+            "server_version": "3.0.0"
+        });
+    }
+
+    // 2. INICIO DE SESIÓN INTEGRADO (Invitado o Cuenta 2026/123)
     if (action.includes('login') || action.includes('auth') || url.includes('login') || url.includes('start')) {
         const inputUser = req.body.username || req.body.user || req.body.email || "";
         const inputPass = req.body.password || req.body.pass || "";
@@ -70,7 +83,9 @@ app.all('*', (req, res) => {
                 "action": "none",
                 "session_id": "s_" + Math.floor(Math.random() * 999),
                 "player_id": 88887777,
-                "shop_version": 2, // Fuerza al juego a pedir la tienda después, no en el login
+                "age_gate_passed": true, // Inyectado directamente en el perfil
+                "terms_accepted": true,   // Inyectado directamente en el perfil
+                "shop_version": 2,
                 "player_data": {
                     "username": isGuest ? "Invitado" : "2026",
                     "level": 75,
@@ -88,7 +103,7 @@ app.all('*', (req, res) => {
         return res.json({ "status": "error", "message": "Usa Invitado o introduce 2026 con 123" });
     }
 
-    // MERCADO: Se envía de forma independiente para no congelar la pantalla de inicio
+    // 3. RESPUESTA DE LA TIENDA INDEPENDIENTE
     if (action.includes('shop') || action.includes('catalog') || action.includes('items') || url.includes('shop')) {
         return res.json({
             "status": "success",
@@ -96,11 +111,13 @@ app.all('*', (req, res) => {
         });
     }
 
-    // RESPUESTA BASE DE RED
+    // RESPUESTA BASE DE CONTROL UNIVERSAL
     return res.json({
         "status": "success",
         "action": "none",
         "force_update": false,
+        "age_gate_passed": true,
+        "terms_accepted": true,
         "server_version": "3.0.0"
     });
 });
@@ -111,6 +128,5 @@ app.post('/api/player_logout', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor MSM v3.0.0 Fast Express activo en puerto ${PORT}.`);
+    console.log(`Servidor MSM v3.0.0 Fast Express con Bypass de Privacidad activo.`);
 });
- 
