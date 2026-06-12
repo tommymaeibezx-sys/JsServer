@@ -3,37 +3,190 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-const TIEMPO_INFINITO_SEGUNDOS = 999999999 * 365 * 24 * 60 * 60;
+let currentOnlinePlayers = 0;
 
-// 1. TODAS LAS ISLAS DEL JUEGO ACTUALIZADAS
-const todasLasIslas = [
-    { island_id: 1, name: "Plant Island", unlocked: true },
-    { island_id: 2, name: "Cold Island", unlocked: true },
-    { island_id: 3, name: "Air Island", unlocked: true },
-    { island_id: 4, name: "Water Island", unlocked: true },
-    { island_id: 5, name: "Earth Island", unlocked: true },
-    { island_id: 6, name: "Fire Haven", unlocked: true },
-    { island_id: 7, name: "Fire Oasis", unlocked: true },
-    { island_id: 8, name: "Light Island", unlocked: true },
-    { island_id: 9, name: "Psychic Island", unlocked: true },
-    { island_id: 10, name: "Faerie Island", unlocked: true },
-    { island_id: 11, name: "Bone Island", unlocked: true },
-    { island_id: 12, name: "Wublin Island", unlocked: true },
-    { island_id: 13, name: "Celestial Island", unlocked: true },
-    { island_id: 14, name: "Tribal Island", unlocked: true },
-    { island_id: 15, name: "Gold Island", unlocked: true },
-    { island_id: 16, name: "Amber Island", unlocked: true },
-    { island_id: 17, name: "Mythical Island", unlocked: true },
-    { island_id: 18, name: "Ethereal Island", unlocked: true },
-    { island_id: 19, name: "Ethereal Workshop", unlocked: true },
-    { island_id: 20, name: "Shugabush Island", unlocked: true },
-    { island_id: 21, name: "Magical Sanctum", unlocked: true }
-];
+// Límite estricto de 51 jugadores activos simultáneamente
+app.use((req, res, next) => {
+    if (currentOnlinePlayers >= 51) {
+        return res.status(503).json({ 
+            "status": "error", 
+            "message": "Servidor lleno. Capacidad máxima: 51 jugadores." 
+        });
+    }
+    next();
+});
 
-// 2. GENERADOR AUTOMÁTICO DE TODOS LOS ELEMENTOS (1, 2, 3, 4 y 5 elementos + Especiales)
-const generarCatalogoCompleto = () => {
+// 1. SALTAR ACTUALIZACIÓN DEL JUEGO
+app.post('/api/version_check', (req, res) => {
+    res.json({
+        "status": "success",
+        "action": "none", 
+        "force_update": false,
+        "server_version": req.body.version || "5.0.0"
+    });
+});
+
+// 2. LOGIN ANÓNIMO VOLÁTIL (Islas Elementales y Espejo Desbloqueadas al Máximo)
+app.post('/api/player_login', (req, res) => {
+    currentOnlinePlayers++;
+
+    const exclusiveIslands = [
+        { "island_id": 1, "name": "Plant Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
+        { "island_id": 2, "name": "Cold Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
+        { "island_id": 3, "name": "Air Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
+        { "island_id": 4, "name": "Water Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
+        { "island_id": 5, "name": "Earth Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
+        { "island_id": 11, "name": "Mirror Plant Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
+        { "island_id": 12, "name": "Mirror Cold Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
+        { "island_id": 13, "name": "Mirror Air Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
+        { "island_id": 14, "name": "Mirror Water Island", "unlocked": true, "beds": 999999, "castle_level": 10 },
+        { "island_id": 15, "name": "Mirror Earth Island", "unlocked": true, "beds": 999999, "castle_level": 10 }
+    ];
+
+    res.json({
+        "status": "success",
+        "player_id": req.body.player_id || "anon_player_" + Math.floor(Math.random() * 100000),
+        "game_data": {
+            "account_type": "guest_anonymous",
+            "level": 75,
+            "resources": {
+                "coins": 999999999,
+                "diamonds": 99999999,
+                "keys": 99999999,
+                "food": 999999999,
+                "relics": 99999999,
+                "stamina": 99999999
+            },
+            "islands": exclusiveIslands
+        }
+    });
+});
+
+// 3. TIENDA COMPLETA: Monstruos Elementales, Variantes y Wubboxes a precio 0 por tiempo masivo
+app.get('/api/get_shop', (req, res) => {
+    // Cálculo del tiempo solicitado en segundos para el motor del juego
+    const massiveTimeSeconds = 999999999 * 24 * 60 * 60; 
+
+    // Listado mapeado de ID originales de monstruos de las islas elementales
+    const elementalMonsters = [
+        // --- 1 Elemento (Naturales) ---
+        { "id": 1, "name": "Noggin", "class": "common" },
+        { "id": 2, "name": "Mammott", "class": "common" },
+        { "id": 3, "name": "Toe Jammer", "class": "common" },
+        { "id": 4, "name": "Potbelly", "class": "common" },
+        { "id": 5, "name": "Tweedle", "class": "common" },
+
+        // --- 2 Elementos ---
+        { "id": 10, "name": "Drumpler", "class": "common" },
+        { "id": 11, "name": "Fwog", "class": "common" },
+        { "id": 12, "name": "Maw", "class": "common" },
+        { "id": 13, "name": "Shrubb", "class": "common" },
+        { "id": 14, "name": "Furcorn", "class": "common" },
+        { "id": 15, "name": "Oaktopus", "class": "common" },
+        { "id": 16, "name": "Dandidoo", "class": "common" },
+        { "id": 17, "name": "Pango", "class": "common" },
+        { "id": 18, "name": "Quibble", "class": "common" },
+        { "id": 19, "name": "Cybop", "class": "common" },
+
+        // --- 3 Elementos ---
+        { "id": 30, "name": "T-Rox", "class": "common" },
+        { "id": 31, "name": "Clamble", "class": "common" },
+        { "id": 32, "name": "Bowgart", "class": "common" },
+        { "id": 33, "name": "Pummel", "class": "common" },
+        { "id": 34, "name": "Thumpies", "class": "common" },
+        { "id": 35, "name": "Congle", "class": "common" },
+        { "id": 36, "name": "Spunge", "class": "common" },
+        { "id": 37, "name": "Scups", "class": "common" },
+        { "id": 38, "name": "PomPom", "class": "common" },
+        { "id": 39, "name": "Reedling", "class": "common" },
+
+        // --- 4 Elementos (Jefes de Isla) ---
+        { "id": 50, "name": "Entbrat", "class": "common" },
+        { "id": 51, "name": "Deedge", "class": "common" },
+        { "id": 52, "name": "Riff", "class": "common" },
+        { "id": 53, "name": "Shellbeat", "class": "common" },
+        { "id": 54, "name": "Quarrister", "class": "common" },
+
+        // --- Míticos y Estacionales de estas Islas ---
+        { "id": 70, "name": "G'joob", "class": "mythical" },
+        { "id": 71, "name": "Strombonin", "class": "mythical" },
+        { "id": 72, "name": "Yawstrich", "class": "mythical" },
+        { "id": 73, "name": "Anglow", "class": "mythical" },
+        { "id": 74, "name": "Hyehehe", "class": "mythical" },
+        { "id": 80, "name": "Punkleton", "class": "seasonal" }, // Spooktacle (Plant)
+        { "id": 81, "name": "Yool", "class": "seasonal" },       // Festival of Yay (Cold)
+        { "id": 82, "name": "Schmoochle", "class": "seasonal" },  // Season of Love (Air)
+        { "id": 83, "name": "Blabbit", "class": "seasonal" },     // Eggstravaganza (Water)
+        { "id": 84, "name": "Hoola", "class": "seasonal" },       // SummerSong (Earth)
+
+        // --- SUPERNATURALES: Los Wubbox ---
+        { "id": 90, "name": "Wubbox Común", "class": "supernatural" },
+        { "id": 91, "name": "Rare Wubbox", "class": "supernatural" },
+        { "id": 92, "name": "Epic Wubbox (Plant)", "class": "supernatural" },
+        { "id": 93, "name": "Epic Wubbox (Cold)", "class": "supernatural" },
+        { "id": 94, "name": "Epic Wubbox (Air)", "class": "supernatural" },
+        { "id": 95, "name": "Epic Wubbox (Water)", "class": "supernatural" },
+        { "id": 96, "name": "Epic Wubbox (Earth)", "class": "supernatural" }
+    ];
+
+    const catalog = [];
+
+    // Bucle para generar automáticamente las variantes Normales, Raras y Épicas de cada uno
+    elementalMonsters.forEach(monster => {
+        // Variante Común / Base
+        catalog.push({
+            "monster_id": monster.id,
+            "name": monster.name,
+            "type": "common",
+            "cost_coins": 0,
+            "cost_diamonds": 0,
+            "time_left": massiveTimeSeconds
+        });
+
+        // Generar variante Rara (Excluyendo los Epic Wubbox fijos)
+        if (monster.id < 92) {
+            catalog.push({
+                "monster_id": monster.id + 1000, // Offset estándar para variantes raras
+                "name": "Rare " + monster.name,
+                "type": "rare",
+                "cost_coins": 0,
+                "cost_diamonds": 0,
+                "time_left": massiveTimeSeconds
+            });
+
+            // Generar variante Épica
+            catalog.push({
+                "monster_id": monster.id + 2000, // Offset estándar para variantes épicas
+                "name": "Epic " + monster.name,
+                "type": "epic",
+                "cost_coins": 0,
+                "cost_diamonds": 0,
+                "time_left": massiveTimeSeconds
+            });
+        }
+    });
+
+    res.json({
+        "status": "success",
+        "shop_items": catalog
+    });
+});
+
+// 4. SIMULAR GUARDADO EXITOSO
+app.post('/api/save_progress', (req, res) => {
+    res.json({ "status": "success" });
+});
+
+// 5. REMOVER CONEXIÓN ACTIVA AL SALIR
+app.post('/api/player_logout', (req, res) => {
+    if (currentOnlinePlayers > 0) currentOnlinePlayers--;
+    res.json({ "status": "success" });
+});
+
+app.listen(PORT, () => {
+    console.log(`Servidor MSM con Tienda Completa y Wubbox en puerto ${PORT}.`);
+});
     const listaMonstruos Base = [
         // 1 Elemento (Singulares)
         { id: "noggin", name: "Noggin", class: "Natural (Earth)" },
