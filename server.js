@@ -9,7 +9,7 @@ let currentPlayers = 0;
 const MAX_PLAYERS = 10;
 const massiveTime = 999999999 * 24 * 60 * 60;
 
-// Estructura de islas elementales y espejo v3.0.0
+// Estructura universal de islas elementales y espejo v3.0.0
 const universalIslands = [
     { "island_id": 1, "i": 1, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999 },
     { "island_id": 2, "i": 2, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999 },
@@ -23,7 +23,7 @@ const universalIslands = [
     { "island_id": 15, "i": 15, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999 }
 ];
 
-// IDs de Monstruos compactados (Elementales, Mágicos, Raros, Épicos y Wubbox)
+// IDs de Monstruos corregidos y completados (Naturales, Mágicos y Wubboxes)
 const baseMonsterIds = [
     1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
     30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 50, 51, 52, 53, 54,
@@ -40,52 +40,61 @@ for (const id of baseMonsterIds) {
     }
 }
 
-// CONFIGURACIÓN DE SEGURIDAD AGRESIVA (Bypass de certificados para el APK)
+// Configuración de cabeceras globales
 app.use((req, res, next) => {
-    console.log(`[RASTREO CLÁSICO] -> ${req.method} a la ruta: ${req.originalUrl}`);
-    
-    // Inyectar cabeceras que obligan al cliente C++ a aceptar la respuesta sin importar el SSL
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', '*');
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Server', 'BigBlueBugServer'); // Emulación de firma de servidor original
-
+    
     if (currentPlayers >= MAX_PLAYERS && !req.originalUrl.includes('logout')) {
+        res.setHeader('Content-Type', 'application/json');
         return res.status(503).json({ "status": 0, "error": "server_full" });
     }
     next();
 });
 
-// RESPUESTA AL TEST DE VERIFICACIÓN INICIAL (Bypass del bucle infinito)
+// 1. RESPUESTA AL HEAD (TEST DE CONEXIÓN INICIAL)
 app.head('/', (req, res) => {
     res.status(200).end();
 });
 
+// 2. RESPUESTA AL GET / (ENTREGA EL XML DE ENRUTAMIENTO NATIVO DE LA V3.0.0)
 app.get('/', (req, res) => {
-    const payload = {
-        "status": 1,
-        "success": true,
-        "action": "none",
-        "age_gate_passed": 1, "age_gate": 1, "ag": 1,
-        "terms_accepted": 1, "terms": 1, "tm": 1,
-        "privacy_accepted": 1, "privacy": 1,
-        "download_required": 0, "needs_download": false,
-        "server_version": "3.0.0", "version": "3.0.0", "sv": "3.0.0"
-    };
-    return res.json({
-        ...payload,
-        "config": payload,
-        "response": payload
-    });
+    console.log("[RASTREO] Enviando XML oficial de configuración");
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    
+    // Obtenemos dinámicamente el dominio actual para auto-configurar el juego
+    const host = req.headers.host;
+    const baseUrl = `https://${host}`;
+
+    // XML estructural legítimo que el motor de MSM decodifica para saber a dónde apuntar
+    const xmlConfig = `<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <version>3.0.0</version>
+    <gateways>
+        <gateway>${baseUrl}/api</gateway>
+        <login>${baseUrl}/login</login>
+        <shop>${baseUrl}/shop</shop>
+    </gateways>
+    <features>
+        <age_gate>1</age_gate>
+        <terms_accepted>1</terms_accepted>
+        <download_required>0</download_required>
+    </features>
+</config>`;
+
+    return res.status(200).send(xmlConfig);
 });
 
-// CAPTURADOR PARA EL PROCESO DE INICIO Y MERCADO
+// 3. CAPTURADOR ADAPTATIVO PARA EL TRÁFICO DERIVADO DEL XML
 app.all('*', (req, res) => {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
     const action = (req.body.action || req.query.action || "").toLowerCase();
     const url = req.originalUrl.toLowerCase();
 
-    // INTERCEPCIÓN DEL LOGEO (User: 2026 / Pass: 123 o Botón Invitado)
+    console.log(`[ACCIÓN DERIVADA] -> Método: ${req.method} | URL: ${req.originalUrl} | Action: ${action}`);
+
+    // INTERCEPCIÓN DEL LOGEO
     if (action.includes('login') || action.includes('auth') || url.includes('login') || action.includes('start')) {
         const inputUser = req.body.username || req.body.user || "";
         const inputPass = req.body.password || req.body.pass || "";
@@ -128,7 +137,7 @@ app.all('*', (req, res) => {
         });
     }
 
-    // RESPUESTA DE SINCRONIZACIÓN BASE
+    // RESPUESTA BASE
     return res.json({
         "status": 1,
         "success": true,
@@ -139,6 +148,6 @@ app.all('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor MSM con Bypass SSL agresivo corriendo en puerto ${PORT}.`);
+    console.log(`Servidor MSM XML-Router (Límite: 10) activo en puerto ${PORT}.`);
 });
  
