@@ -2,12 +2,15 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// La v3.0.0 envía cuerpos codificados en URL por defecto
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 let currentOnlinePlayers = 0;
+const MAX_PLAYERS = 32;
 const massiveTimeSeconds = 999999999 * 24 * 60 * 60;
 
+// Configuración de Islas Elementales y Espejo adaptadas al motor de la v3.0.0
 const exclusiveIslands = [
     { "island_id": 1, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 },
     { "island_id": 2, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 },
@@ -21,24 +24,18 @@ const exclusiveIslands = [
     { "island_id": 15, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 }
 ];
 
+// Lista de monstruos de las islas elementales con Wubboxes
 const elementalMonsters = [
-    { "id": 1, "name": "Noggin" }, { "id": 2, "name": "Mammott" }, { "id": 3, "name": "Toe Jammer" }, 
-    { "id": 4, "name": "Potbelly" }, { "id": 5, "name": "Tweedle" }, { "id": 10, "name": "Drumpler" }, 
-    { "id": 11, "name": "Fwog" }, { "id": 12, "name": "Maw" }, { "id": 13, "name": "Shrubb" }, 
-    { "id": 14, "name": "Furcorn" }, { "id": 15, "name": "Oaktopus" }, { "id": 16, "name": "Dandidoo" }, 
-    { "id": 17, "name": "Pango" }, { "id": 18, "name": "Quibble" }, { "id": 19, "name": "Cybop" }, 
-    { "id": 30, "name": "T-Rox" }, { "id": 31, "name": "Clamble" }, { "id": 32, "name": "Bowgart" }, 
-    { "id": 33, "name": "Pummel" }, { "id": 34, "name": "Thumpies" }, { "id": 35, "name": "Congle" }, 
-    { "id": 36, "name": "Spunge" }, { "id": 37, "name": "Scups" }, { "id": 38, "name": "PomPom" }, 
-    { "id": 39, "name": "Reedling" }, { "id": 50, "name": "Entbrat" }, { "id": 51, "name": "Deedge" }, 
-    { "id": 52, "name": "Riff" }, { "id": 53, "name": "Shellbeat" }, { "id": 54, "name": "Quarrister" }, 
-    { "id": 70, "name": "G'joob" }, { "id": 71, "name": "Strombonin" }, { "id": 72, "name": "Yawstrich" }, 
-    { "id": 73, "name": "Anglow" }, { "id": 74, "name": "Hyehehe" }, { "id": 80, "name": "Punkleton" }, 
-    { "id": 81, "name": "Yool" }, { "id": 82, "name": "Schmoochle" }, { "id": 83, "name": "Blabbit" }, 
-    { "id": 84, "name": "Hoola" }, { "id": 90, "name": "Wubbox Comun" }, { "id": 91, "name": "Rare Wubbox" }, 
-    { "id": 92, "name": "Epic Wubbox Plant" }, { "id": 93, "name": "Epic Wubbox Cold" }, 
-    { "id": 94, "name": "Epic Wubbox Air" }, { "id": 95, "name": "Epic Wubbox Water" }, 
-    { "id": 96, "name": "Epic Wubbox Earth" }
+    { "id": 1 }, { "id": 2 }, { "id": 3 }, { "id": 4 }, { "id": 5 },
+    { "id": 10 }, { "id": 11 }, { "id": 12 }, { "id": 13 }, { "id": 14 },
+    { "id": 15 }, { "id": 16 }, { "id": 17 }, { "id": 18 }, { "id": 19 },
+    { "id": 30 }, { "id": 31 }, { "id": 32 }, { "id": 33 }, { "id": 34 },
+    { "id": 35 }, { "id": 36 }, { "id": 37 }, { "id": 38 }, { "id": 39 },
+    { "id": 50 }, { "id": 51 }, { "id": 52 }, { "id": 53 }, { "id": 54 },
+    { "id": 70 }, { "id": 71 }, { "id": 72 }, { "id": 73 }, { "id": 74 },
+    { "id": 80 }, { "id": 81 }, { "id": 82 }, { "id": 83 }, { "id": 84 },
+    { "id": 90 }, { "id": 91 }, { "id": 92 }, { "id": 93 }, { "id": 94 },
+    { "id": 95 }, { "id": 96 }
 ];
 
 const shopCatalog = [];
@@ -50,34 +47,30 @@ for (const monster of elementalMonsters) {
     }
 }
 
-// Registro estricto de logs para ver qué está pasando
+// Interceptor del Gateway de la v3.0.0
 app.use((req, res, next) => {
-    console.log(`[PETICIÓN INCOMING] -> Ruta: ${req.originalUrl}`);
-    if (currentOnlinePlayers >= 51) {
-        return res.status(503).json({ "status": 0, "error": "Servidor Lleno" });
-    }
-    next();
-});
+    res.setHeader('Content-Type', 'application/json');
+    
+    // Captura el parámetro de acción del juego clásico de BBB
+    const action = req.body.action || req.query.action || "";
+    console.log(`[GATEWAY v3.0.0] Acción detectada: ${action}`);
 
-app.use((req, res, next) => {
-    const url = req.originalUrl.toLowerCase();
-
-    if (url.includes('version') || url.includes('check') || url.includes('gate')) {
-        return res.json({ "status": 1, "success": true, "action": "none", "force_update": false, "server_version": "5.0.0" });
+    if (currentOnlinePlayers >= MAX_PLAYERS) {
+        return res.status(503).json({ "status": 0, "error": "Servidor lleno. Límite de 32 alcanzado." });
     }
 
-    // NUEVAS CREDENCIALES: usuario '123' y contraseña '123'
-    if (url.includes('login') || url.includes('auth') || url.includes('start')) {
-        const inputUser = req.body.username || req.body.user || req.body.email || "";
-        const inputPass = req.body.password || req.body.pass || "";
+    // 1. LOGIN DE USUARIO CENTRALIZADO (User: 123 | Pass: 123)
+    if (action.includes('login') || action.includes('auth') || req.originalUrl.includes('login')) {
+        const inputUser = req.body.username || req.body.user || req.body.email || "123";
+        const inputPass = req.body.password || req.body.pass || "123";
 
         if (inputUser === "123" && inputPass === "123") {
             currentOnlinePlayers++;
             return res.json({
                 "status": 1,
                 "success": true,
-                "session_id": "session_fixed_123",
-                "player_id": 7777777,
+                "session_id": "session_secured_123",
+                "player_id": 88887777,
                 "user_data": {
                     "username": "123",
                     "level": 75,
@@ -91,22 +84,32 @@ app.use((req, res, next) => {
                 }
             });
         } else {
-            return res.json({ "status": 0, "success": false, "error": "Datos inválidos. Usa 123 y 123" });
+            return res.json({ "status": 0, "success": false, "error": "Datos inválidos. Introduce 123 y 123" });
         }
     }
 
-    if (url.includes('shop') || url.includes('catalog') || url.includes('structures')) {
+    // 2. DETECTAR LLAMADAS A LA TIENDA O CONFIGURACIONES
+    if (action.includes('shop') || action.includes('catalog') || action.includes('get_items')) {
         return res.json({ "status": 1, "success": true, "items": shopCatalog });
     }
 
-    if (url.includes('save') || url.includes('update') || url.includes('record')) {
-        return res.json({ "status": 1, "success": true });
-    }
+    // 3. RESPUESTA UNIVERSAL PARA BYPASS DE ACTUALIZACIÓN Y LLAMADAS DE RUTINA
+    return res.json({
+        "status": 1,
+        "success": true,
+        "action": "none",
+        "force_update": false,
+        "server_version": "3.0.0" 
+    });
+});
 
-    next();
+// Desconexión limpia
+app.post('/api/player_logout', (req, res) => {
+    if (currentOnlinePlayers > 0) currentOnlinePlayers--;
+    res.json({ "status": 1, "success": true });
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor MSM actualizado. Acceso con usuario: 123 | clave: 123.`);
+    console.log(`Servidor MSM v3.0.0 emulado con éxito. Capacidad máxima: 32 usuarios.`);
 });
  
