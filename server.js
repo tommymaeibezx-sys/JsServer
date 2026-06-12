@@ -9,7 +9,7 @@ let currentPlayers = 0;
 const MAX_PLAYERS = 10;
 const massiveTime = 999999999 * 24 * 60 * 60;
 
-// Estructura de islas elementales y espejo v3.0.0
+// Configuración estructural de islas elementales y espejo v3.0.0
 const universalIslands = [
     { "island_id": 1, "i": 1, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999 },
     { "island_id": 2, "i": 2, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999 },
@@ -27,8 +27,7 @@ const universalIslands = [
 const baseMonsterIds = [
     1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
     30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 50, 51, 52, 53, 54,
-    70, 71, 72, 73, 74, 80, 81, 82, 83, 84,
-    90, 91, 92, 93, 94, 95, 96,
+    70, 71, 72, 73, 74, 80, 81, 82, 83, 84, 90, 91, 92, 93, 94, 95, 96,
     201, 202, 203, 204, 205, 211, 212, 213, 214, 215
 ];
 
@@ -41,7 +40,6 @@ for (const id of baseMonsterIds) {
     }
 }
 
-// Interceptor global de red
 app.use((req, res, next) => {
     console.log(`[RASTREO] Ruta: ${req.originalUrl} | Método: ${req.method}`);
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -52,13 +50,13 @@ app.use((req, res, next) => {
     next();
 });
 
-// 1. SOLUCIÓN COMPLETA PARA LA RAÍZ (Soporta HEAD y GET de verificación inicial)
 app.head('/', (req, res) => {
-    res.status(200).end(); // Responde con éxito vacío e inmediato al test HEAD del juego
+    res.status(200).end();
 });
 
+// RESPUESTA DE CONFIGURACIÓN CON ARBOL TRIPLE PARA ASEGURAR COMPATIBILIDAD
 app.get('/', (req, res) => {
-    return res.json({
+    const responsePayload = {
         "status": 1,
         "success": true,
         "action": "none",
@@ -67,10 +65,15 @@ app.get('/', (req, res) => {
         "privacy_accepted": 1, "privacy": 1,
         "download_required": 0, "needs_download": false,
         "server_version": "3.0.0", "version": "3.0.0", "sv": "3.0.0"
+    };
+
+    return res.json({
+        ...responsePayload,
+        "config": responsePayload,   // Soporte para variaciones que leen nodo config
+        "response": responsePayload // Soporte para variaciones que leen nodo response
     });
 });
 
-// 2. RECEPTOR ADAPTATIVO PARA ACCIONES COMPLEJAS
 app.all('*', (req, res) => {
     const action = (req.body.action || req.query.action || "").toLowerCase();
     const url = req.originalUrl.toLowerCase();
@@ -128,7 +131,7 @@ app.all('*', (req, res) => {
         });
     }
 
-    // RESPUESTA BASE DE TRÁFICO
+    // RESPUESTA BASE DE RED
     return res.json({
         "status": 1,
         "success": true,
@@ -144,6 +147,6 @@ app.all('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor MSM v3.0.0 adaptado para soportar llamadas HEAD en puerto ${PORT}.`);
+    console.log(`Servidor MSM v3.0.0 Híbrido Estructural corriendo en puerto ${PORT}.`);
 });
  
