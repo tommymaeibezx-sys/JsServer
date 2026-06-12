@@ -6,9 +6,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 let currentOnlinePlayers = 0;
-
-// Configuración Masiva de Recursos e Islas Requeridas
 const massiveTimeSeconds = 999999999 * 24 * 60 * 60;
+
 const exclusiveIslands = [
     { "island_id": 1, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 },
     { "island_id": 2, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 },
@@ -22,7 +21,6 @@ const exclusiveIslands = [
     { "island_id": 15, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999 }
 ];
 
-// Monstruos Elementales y Wubboxes para la Tienda
 const elementalMonsters = [
     { "id": 1, "name": "Noggin" }, { "id": 2, "name": "Mammott" }, { "id": 3, "name": "Toe Jammer" }, 
     { "id": 4, "name": "Potbelly" }, { "id": 5, "name": "Tweedle" }, { "id": 10, "name": "Drumpler" }, 
@@ -43,7 +41,6 @@ const elementalMonsters = [
     { "id": 96, "name": "Epic Wubbox Earth" }
 ];
 
-// Construcción del catálogo dinámico de la tienda
 const shopCatalog = [];
 for (const monster of elementalMonsters) {
     shopCatalog.push({ "item_id": monster.id, "cost": 0, "currency": "coins", "duration": massiveTimeSeconds, "type": "common" });
@@ -53,80 +50,55 @@ for (const monster of elementalMonsters) {
     }
 }
 
-// Middleware de diagnóstico y control de capacidad
+// Registro estricto de logs para ver qué está pasando
 app.use((req, res, next) => {
-    console.log(`[SOLICITUD] URL: ${req.originalUrl} | Body: ${JSON.stringify(req.body)}`);
+    console.log(`[PETICIÓN INCOMING] -> Ruta: ${req.originalUrl}`);
     if (currentOnlinePlayers >= 51) {
-        return res.status(503).json({ "status": 0, "error": "Servidor Lleno (Max 51)" });
+        return res.status(503).json({ "status": 0, "error": "Servidor Lleno" });
     }
     next();
 });
 
-// ROUTING DE VALIDACIÓN COMPLETA
 app.use((req, res, next) => {
     const url = req.originalUrl.toLowerCase();
 
-    // 1. CONTROL DE VERSIÓN (Bypass obligatorio)
     if (url.includes('version') || url.includes('check') || url.includes('gate')) {
-        return res.json({
-            "status": 1,
-            "success": true,
-            "action": "none",
-            "force_update": false,
-            "server_version": "5.0.0"
-        });
+        return res.json({ "status": 1, "success": true, "action": "none", "force_update": false, "server_version": "5.0.0" });
     }
 
-    // 2. AUTENTICACIÓN CENTRALIZADA (User: MsmHack | Pass: 1234)
+    // NUEVAS CREDENCIALES: usuario '123' y contraseña '123'
     if (url.includes('login') || url.includes('auth') || url.includes('start')) {
         const inputUser = req.body.username || req.body.user || req.body.email || "";
         const inputPass = req.body.password || req.body.pass || "";
 
-        // Si el APK envía campos vacíos o diferentes, los interceptamos. 
-        // Si quieres forzar que SÓLO entre con esa cuenta, validamos:
-        if (inputUser === "MsmHack" && inputPass === "1234") {
+        if (inputUser === "123" && inputPass === "123") {
             currentOnlinePlayers++;
             return res.json({
                 "status": 1,
                 "success": true,
-                "session_id": "session_secured_9999",
-                "player_id": 99998888,
+                "session_id": "session_fixed_123",
+                "player_id": 7777777,
                 "user_data": {
-                    "username": "MsmHack",
+                    "username": "123",
                     "level": 75,
                     "xp": 99999999,
                     "currency": {
-                        "coins": 999999999,
-                        "diamonds": 99999999,
-                        "keys": 99999999,
-                        "food": 999999999,
-                        "relics": 99999999,
-                        "stamina": 99999999
+                        "coins": 999999999, "diamonds": 99999999, "keys": 99999999, 
+                        "food": 999999999, "relics": 99999999, "stamina": 99999999
                     },
                     "islands": exclusiveIslands,
                     "monsters": []
                 }
             });
         } else {
-            // Rechaza cualquier otro login incorrecto
-            return res.json({
-                "status": 0,
-                "success": false,
-                "error": "Credenciales Incorrectas. Usa MsmHack y 1234"
-            });
+            return res.json({ "status": 0, "success": false, "error": "Datos inválidos. Usa 123 y 123" });
         }
     }
 
-    // 3. RESPUESTA DE LA TIENDA CORREGIDA
     if (url.includes('shop') || url.includes('catalog') || url.includes('structures')) {
-        return res.json({
-            "status": 1,
-            "success": true,
-            "items": shopCatalog
-        });
+        return res.json({ "status": 1, "success": true, "items": shopCatalog });
     }
 
-    // 4. IGNORAR PROGRESO (Sin Save Data)
     if (url.includes('save') || url.includes('update') || url.includes('record')) {
         return res.json({ "status": 1, "success": true });
     }
@@ -134,13 +106,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// Desconexión limpia
-app.post('/api/player_logout', (req, res) => {
-    if (currentOnlinePlayers > 0) currentOnlinePlayers--;
-    res.json({ "status": 1, "success": true });
-});
-
 app.listen(PORT, () => {
-    console.log(`Servidor MSM con cuenta única 'MsmHack' activo en puerto ${PORT}.`);
+    console.log(`Servidor MSM actualizado. Acceso con usuario: 123 | clave: 123.`);
 });
  
