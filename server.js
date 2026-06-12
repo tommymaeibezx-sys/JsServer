@@ -5,121 +5,118 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Límite estricto ultraligero de 10 personas para carga instantánea
 let currentOnlinePlayers = 0;
-const MAX_PLAYERS = 32;
+const MAX_PLAYERS = 10;
 const massiveTimeSeconds = 999999999 * 24 * 60 * 60;
 
-// Configuración completa de Islas Elementales y Espejo exigidas
+// Configuración optimizada de Islas Elementales y Espejo v3.0.0
 const exclusiveIslands = [
-    { "island_id": 1, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999, "structures": [] },
-    { "island_id": 2, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999, "structures": [] },
-    { "island_id": 3, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999, "structures": [] },
-    { "island_id": 4, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999, "structures": [] },
-    { "island_id": 5, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999, "structures": [] },
-    { "island_id": 11, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999, "structures": [] },
-    { "island_id": 12, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999, "structures": [] },
-    { "island_id": 13, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999, "structures": [] },
-    { "island_id": 14, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999, "structures": [] },
-    { "island_id": 15, "unlocked": 1, "island_castle_level": 10, "max_beds": 999999, "structures": [] }
+    { "island_id": 1, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 2, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 3, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 4, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 5, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 11, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 12, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 13, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 14, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 },
+    { "island_id": 15, "unlocked": true, "castle_level": 10, "bed_capacity": 999999 }
 ];
 
-const elementalMonsters = [
-    { "id": 1 }, { "id": 2 }, { "id": 3 }, { "id": 4 }, { "id": 5 },
-    { "id": 10 }, { "id": 11 }, { "id": 12 }, { "id": 13 }, { "id": 14 },
-    { "id": 15 }, { "id": 16 }, { "id": 17 }, { "id": 18 }, { "id": 19 },
-    { "id": 30 }, { "id": 31 }, { "id": 32 }, { "id": 33 }, { "id": 34 },
-    { "id": 35 }, { "id": 36 }, { "id": 37 }, { "id": 38 }, { "id": 39 },
-    { "id": 50 }, { "id": 51 }, { "id": 52 }, { "id": 53 }, { "id": 54 },
-    { "id": 70 }, { "id": 71 }, { "id": 72 }, { "id": 73 }, { "id": 74 },
-    { "id": 80 }, { "id": 81 }, { "id": 82 }, { "id": 83 }, { "id": 84 },
-    { "id": 90 }, { "id": 91 }, { "id": 92 }, { "id": 93 }, { "id": 94 },
-    { "id": 95 }, { "id": 96 }
+// Lista base de IDs: Naturales, Estacionales, Wubboxes y Mágicos (v3.0.0)
+const baseMonsterIds = [
+    1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, // Comunes 1 y 2 elementos
+    30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 50, 51, 52, 53, 54, // 3 y 4 elementos
+    70, 71, 72, 73, 74, 80, 81, 82, 83, 84, // Míticos y Estacionales
+    90, 91, 92, 93, 94, 95, 96, // Wubboxes (Común, Raro y Épicos Elementales)
+    201, 202, 203, 204, 205, 206, 207, 208, 209, 210, // Monstruos Mágicos base
+    211, 212, 213, 214, 215, 216, 217, 218, 219, 220  // Híbridos Mágicos de las islas
 ];
 
 const shopCatalog = [];
-for (const monster of elementalMonsters) {
-    shopCatalog.push({ "item_id": monster.id, "cost": 0, "currency": "coins", "duration": massiveTimeSeconds, "type": "common" });
-    if (monster.id < 92) {
-        shopCatalog.push({ "item_id": monster.id + 1000, "cost": 0, "currency": "coins", "duration": massiveTimeSeconds, "type": "rare" });
-        shopCatalog.push({ "item_id": monster.id + 2000, "cost": 0, "currency": "coins", "duration": massiveTimeSeconds, "type": "epic" });
+for (const id of baseMonsterIds) {
+    // Variante Común a coste 0
+    shopCatalog.push({ "monster_id": id, "cost_coins": 0, "cost_diamonds": 0, "time_left": massiveTimeSeconds, "type": "common" });
+    
+    // Evitar duplicar sobre los Epic Wubbox fijos
+    if (id < 92 || id >= 201) {
+        // Variante Rara (+1000)
+        shopCatalog.push({ "monster_id": id + 1000, "cost_coins": 0, "cost_diamonds": 0, "time_left": massiveTimeSeconds, "type": "rare" });
+        // Variante Épica (+2000)
+        shopCatalog.push({ "monster_id": id + 2000, "cost_coins": 0, "cost_diamonds": 0, "time_left": massiveTimeSeconds, "type": "epic" });
     }
 }
 
-// Forzado de cabeceras HTTP limpias basadas en Objetos
+// Inyección y control de capacidad ultra-rápido
 app.use((req, res, next) => {
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Type', 'application/json');
     if (currentOnlinePlayers >= MAX_PLAYERS && !req.originalUrl.includes('logout')) {
-        return res.status(503).json({ "status": 0, "error": "Server full" });
+        return res.status(503).json({ "status": "error", "message": "Servidor lleno. Máximo 10 personas." });
     }
     next();
 });
 
-// CAPTURADOR DE PETICIONES ESTÁNDAR
 app.all('*', (req, res) => {
     const action = (req.body.action || req.query.action || "").toLowerCase();
     const url = req.originalUrl.toLowerCase();
-    
-    console.log(`[ROUTE] v3.0.0 -> Action: ${action} | URL: ${url}`);
 
-    // LOGIN RECONSTRUIDO (Acepta Invitado o Datos Fijos)
-    if (action.includes('login') || action.includes('auth') || action.includes('start') || url.includes('login')) {
+    console.log(`[FAST SERVICE 10X] Action: ${action}`);
+
+    // LOGIN INMEDIATO: Procesa Invitado o Cuenta 2026/123 en menos de 1 segundo
+    if (action.includes('login') || action.includes('auth') || url.includes('login') || url.includes('start')) {
         const inputUser = req.body.username || req.body.user || req.body.email || "";
         const inputPass = req.body.password || req.body.pass || "";
         const isGuest = action.includes('guest') || req.body.guest || (!inputUser && !inputPass);
 
-        // Si es válido (Invitado o Cuenta 2026/123), inyectamos todo el árbol estructural del juego
         if (isGuest || (inputUser === "2026" && inputPass === "123")) {
             currentOnlinePlayers++;
             
             return res.json({
-                "status": 1,
-                "success": true,
-                "session_id": "session_fixed_2026",
+                "status": "success",
+                "action": "none",
+                "session_id": "fast_session_" + Math.floor(Math.random() * 9999),
                 "player_id": 88887777,
-                "current_server_time": Math.floor(Date.now() / 1000),
-                "user_data": {
-                    "username": isGuest ? "Guest_Player" : "2026",
+                "player_data": {
+                    "username": isGuest ? "Invitado" : "2026",
                     "level": 75,
-                    "xp": 99999999,
-                    "currency": {
-                        "coins": 999999999,
-                        "diamonds": 99999999,
-                        "keys": 99999999,
-                        "food": 999999999,
-                        "relics": 99999999,
-                        "stamina": 99999999
-                    },
+                    "coins": 999999999,
+                    "diamonds": 99999999,
+                    "keys": 99999999,
+                    "food": 999999999,
+                    "relics": 99999999,
+                    "stamina": 99999999,
                     "islands": exclusiveIslands,
-                    "monsters": [],
-                    "structures": [],
-                    "egg_backpack": []
+                    "monsters": []
                 }
             });
         }
-
-        return res.json({ "status": 0, "error": "Usa el boton Invitado o introduce usuario 2026 y clave 123" });
+        return res.json({ "status": "error", "message": "Usa Invitado o introduce 2026 con clave 123." });
     }
 
-    // RESPUESTA DE LA TIENDA
-    if (action.includes('shop') || action.includes('catalog') || action.includes('items')) {
+    // CARGA DE LA TIENDA CON TODOS LOS MONSTRUOS Y MÁGICOS
+    if (action.includes('shop') || action.includes('catalog') || action.includes('items') || url.includes('shop')) {
         return res.json({
-            "status": 1,
-            "success": true,
-            "items": shopCatalog
+            "status": "success",
+            "monsters": shopCatalog
         });
     }
 
-    // RESPUESTA DE BYPASS DE VERSIÓN Y RUTINAS
+    // RESPUESTA BASE INSTANTÁNEA
     return res.json({
-        "status": 1,
-        "success": true,
+        "status": "success",
         "action": "none",
         "force_update": false,
         "server_version": "3.0.0"
     });
 });
 
+app.post('/api/player_logout', (req, res) => {
+    if (currentOnlinePlayers > 0) currentOnlinePlayers--;
+    res.json({ "status": "success" });
+});
+
 app.listen(PORT, () => {
-    console.log(`Servidor MSM v3.0.0 restaurado. Límite: 32. Login: Invitado o 2026/123.`);
+    console.log(`Servidor MSM Fast-Load (Límite: 10) activo en puerto ${PORT}.`);
 });
  
