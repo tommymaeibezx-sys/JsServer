@@ -1,14 +1,11 @@
 {
-  "name": "server-roblox",
+  "name": "msm-server-modded",
   "version": "1.0.0",
-  "description": "Servidor real para mi clon de roblox",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.19.2",
-    "socket.io": "^4.7.5"
+    "express": "^4.19.2"
   }
 }
