@@ -29,8 +29,7 @@ const baseMonsterIds = [
     30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 50, 51, 52, 53, 54,
     70, 71, 72, 73, 74, 80, 81, 82, 83, 84,
     90, 91, 92, 93, 94, 95, 96,
-    201, 202, 203, 204, 205,
-    211, 212, 213, 214, 215
+    201, 202, 203, 204, 205, 211, 212, 213, 214, 215
 ];
 
 const universalShop = [];
@@ -42,26 +41,32 @@ for (const id of baseMonsterIds) {
     }
 }
 
-// -------------------------------------------------------------
-// OUTPUT EXCLUSIVO PARA RASTREAR ERRORES EN LOS LOGS DE RENDER
-// -------------------------------------------------------------
+// Interceptor global con depuración limpia
 app.use((req, res, next) => {
-    console.log("\n**************************************************");
-    console.log(`[ALERTA DE PETICIÓN] Hora: ${new Date().toISOString()}`);
-    console.log(`[MÉTODO HTTP]: ${req.method}`);
-    console.log(`[URL DETECTADA]: ${req.originalUrl}`);
-    console.log(`[CABECERAS DISPOSITIVO]:`, JSON.stringify(req.headers, null, 2));
-    console.log(`[CUERPO / BODY RECIBIDO]:`, JSON.stringify(req.body, null, 2));
-    console.log("**************************************************\n");
-
+    console.log(`[RASTREO] Ruta: ${req.originalUrl} | Método: ${req.method}`);
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    
     if (currentPlayers >= MAX_PLAYERS && !req.originalUrl.includes('logout')) {
         return res.status(503).json({ "status": 0, "error": "server_full" });
     }
     next();
 });
 
-// CAPTURADOR ADAPTATIVO GENERAL
+// CORRECCIÓN DE LA RAÍZ PRINCIPAL: Responde de forma exitosa al Ping inicial del juego
+app.get('/', (req, res) => {
+    return res.json({
+        "status": 1,
+        "success": true,
+        "action": "none",
+        "age_gate_passed": 1, "age_gate": 1, "ag": 1,
+        "terms_accepted": 1, "terms": 1, "tm": 1,
+        "privacy_accepted": 1, "privacy": 1,
+        "download_required": 0, "needs_download": false,
+        "server_version": "3.0.0", "version": "3.0.0", "sv": "3.0.0"
+    });
+});
+
+// MANEJADOR UNIVERSAL PARA EL RESTO DE PETICIONES
 app.all('*', (req, res) => {
     const action = (req.body.action || req.query.action || "").toLowerCase();
     const url = req.originalUrl.toLowerCase();
@@ -108,7 +113,7 @@ app.all('*', (req, res) => {
         return res.json({ "status": 0, "error": "invalid_credentials" });
     }
 
-    // 2. TIENDA
+    // 2. MERCADO COMPLETO
     if (action.includes('shop') || action.includes('catalog') || url.includes('shop')) {
         return res.json({
             "status": 1,
@@ -119,7 +124,7 @@ app.all('*', (req, res) => {
         });
     }
 
-    // 3. RESPUESTA BASE LEGAL
+    // 3. RESPUESTA BASE LEGAL ADAPTATIVA
     return res.json({
         "status": 1,
         "success": true,
@@ -135,5 +140,6 @@ app.all('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor de Diagnóstico MSM activo en puerto ${PORT}.`);
+    console.log(`Servidor MSM v3.0.0 con respuesta raíz('/') activa en puerto ${PORT}.`);
 });
+ 
