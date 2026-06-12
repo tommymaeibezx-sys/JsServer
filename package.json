@@ -1,9 +1,11 @@
 {
-  "name": "msm-server",
+  "name": "msm-no-save-backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
-    "express": "^4.18.2",
-    "ws": "^8.13.0"
+    "express": "^4.19.2"
   }
 }
