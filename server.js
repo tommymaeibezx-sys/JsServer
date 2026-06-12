@@ -19,15 +19,16 @@ const universalIslands = [
     { "island_id": 11, "i": 11, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999 },
     { "island_id": 12, "i": 12, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999 },
     { "island_id": 13, "i": 13, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999 },
-    { "island_id": 14, "i": 14, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999 },
-    { "island_id": 15, "i": 15, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999 }
+    { "island_id": 14, "i": 14, "unlocked": 1, "u": 1, "castle_level": 10, "max_beds": 999999 },
+    { "island_id": 15, "i": 15, "unlocked": 1, "u": 1, "castle_level": 10, "max_beds": 999999 }
 ];
 
 // IDs de Monstruos corregidos y completados (Naturales, Mágicos y Wubboxes)
 const baseMonsterIds = [
     1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
     30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 50, 51, 52, 53, 54,
-    70, 71, 72, 73, 74, 80, 81, 82, 83, 84, 90, 91, 92, 93, 94, 95, 96,
+    70, 71, 72, 73, 74, 80, 81, 82, 83, 84,
+    90, 91, 92, 93, 94, 95, 96,
     201, 202, 203, 204, 205, 211, 212, 213, 214, 215
 ];
 
@@ -40,61 +41,53 @@ for (const id of baseMonsterIds) {
     }
 }
 
-// Configuración de cabeceras globales
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', '*');
-    
-    if (currentPlayers >= MAX_PLAYERS && !req.originalUrl.includes('logout')) {
-        res.setHeader('Content-Type', 'application/json');
-        return res.status(503).json({ "status": 0, "error": "server_full" });
-    }
     next();
 });
 
-// 1. RESPUESTA AL HEAD (TEST DE CONEXIÓN INICIAL)
+// 1. RESPUESTA RE-ESTRUCTURADA AL TEST HEAD
 app.head('/', (req, res) => {
     res.status(200).end();
 });
 
-// 2. RESPUESTA AL GET / (ENTREGA EL XML DE ENRUTAMIENTO NATIVO DE LA V3.0.0)
+// 2. ENTRADA DEL XML DE PRODUCCIÓN COMPATIBLE (Usa rutas dinámicas sin protocolo estricto)
 app.get('/', (req, res) => {
-    console.log("[RASTREO] Enviando XML oficial de configuración");
-    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    console.log("[RASTREO] Enviando XML oficial compatible");
+    res.setHeader('Content-Type', 'text/xml; charset=utf-8');
     
-    // Obtenemos dinámicamente el dominio actual para auto-configurar el juego
     const host = req.headers.host;
-    const baseUrl = `https://${host}`;
 
-    // XML estructural legítimo que el motor de MSM decodifica para saber a dónde apuntar
+    // Formato de nodos legítimo de Big Blue Bubble en la era v3.X
     const xmlConfig = `<?xml version="1.0" encoding="utf-8"?>
 <config>
-    <version>3.0.0</version>
-    <gateways>
-        <gateway>${baseUrl}/api</gateway>
-        <login>${baseUrl}/login</login>
-        <shop>${baseUrl}/shop</shop>
-    </gateways>
-    <features>
+    <game_version>3.0.0</game_version>
+    <status>1</status>
+    <services>
+        <gateway>http://${host}/api</gateway>
+        <login>http://${host}/login</login>
+        <shop>http://${host}/shop</shop>
+    </services>
+    <legal>
         <age_gate>1</age_gate>
         <terms_accepted>1</terms_accepted>
-        <download_required>0</download_required>
-    </features>
+        <privacy_accepted>1</privacy_accepted>
+    </legal>
 </config>`;
 
     return res.status(200).send(xmlConfig);
 });
 
-// 3. CAPTURADOR ADAPTATIVO PARA EL TRÁFICO DERIVADO DEL XML
+// 3. PROCESAMIENTO GENERAL DE RESPUESTAS SECUNDARIAS
 app.all('*', (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     const action = (req.body.action || req.query.action || "").toLowerCase();
     const url = req.originalUrl.toLowerCase();
 
-    console.log(`[ACCIÓN DERIVADA] -> Método: ${req.method} | URL: ${req.originalUrl} | Action: ${action}`);
+    console.log(`[ACCIÓN DETECTADA] -> URL: ${req.originalUrl} | Action: ${action}`);
 
-    // INTERCEPCIÓN DEL LOGEO
     if (action.includes('login') || action.includes('auth') || url.includes('login') || action.includes('start')) {
         const inputUser = req.body.username || req.body.user || "";
         const inputPass = req.body.password || req.body.pass || "";
@@ -107,9 +100,6 @@ app.all('*', (req, res) => {
                 "success": true,
                 "session_id": "s_2026", "sid": "s_2026",
                 "player_id": 7777777, "pid": 7777777,
-                "age_gate_passed": 1, "ag": 1,
-                "terms_accepted": 1, "tm": 1,
-                "server_version": "3.0.0", "sv": "3.0.0",
                 "player_data": {
                     "username": isGuest ? "Invitado" : "2026", "n": isGuest ? "Invitado" : "2026",
                     "level": 75, "l": 75,
@@ -127,27 +117,22 @@ app.all('*', (req, res) => {
         return res.json({ "status": 0, "error": "credenciales_invalidas" });
     }
 
-    // INTERCEPCIÓN DEL MERCADO
     if (action.includes('shop') || action.includes('catalog') || url.includes('shop')) {
         return res.json({
             "status": 1,
             "success": true,
-            "monsters": universalShop,
-            "shop_items": universalShop
+            "monsters": universalShop
         });
     }
 
-    // RESPUESTA BASE
     return res.json({
         "status": 1,
         "success": true,
-        "age_gate_passed": 1, "ag": 1,
-        "terms_accepted": 1, "tm": 1,
         "server_version": "3.0.0"
     });
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor MSM XML-Router (Límite: 10) activo en puerto ${PORT}.`);
+    console.log(`Servidor MSM XML-Compatible levantado en puerto ${PORT}.`);
 });
  
