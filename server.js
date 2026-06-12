@@ -29,7 +29,8 @@ const baseMonsterIds = [
     30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 50, 51, 52, 53, 54,
     70, 71, 72, 73, 74, 80, 81, 82, 83, 84,
     90, 91, 92, 93, 94, 95, 96,
-    201, 202, 203, 204, 205, 211, 212, 213, 214, 215
+    201, 202, 203, 204, 205,
+    211, 212, 213, 214, 215
 ];
 
 const shopCatalog = [];
@@ -53,23 +54,9 @@ app.all('*', (req, res) => {
     const action = (req.body.action || req.query.action || "").toLowerCase();
     const url = req.originalUrl.toLowerCase();
 
-    console.log(`[ROUTE] Action: ${action} | URL: ${url}`);
+    console.log(`[ROUTE LOG] Action: ${action} | URL: ${url}`);
 
-    // 1. BYPASS DE EDAD, TÉRMINOS Y DESCARGA DE DATOS INICIALES
-    if (action.includes('age') || action.includes('terms') || action.includes('policy') || action.includes('download')) {
-        return res.json({
-            "status": "success",
-            "action": "none",
-            "age_gate_passed": true,
-            "terms_accepted": true,
-            "privacy_accepted": true,
-            "needs_download": false,
-            "download_url": "",
-            "server_version": "3.0.0"
-        });
-    }
-
-    // 2. INICIO DE SESIÓN INTEGRADO (Invitado o Cuenta 2026/123)
+    // LOGIN PRINCIPAL (Admite botón Invitado o credenciales manuales 2026/123)
     if (action.includes('login') || action.includes('auth') || url.includes('login') || url.includes('start')) {
         const inputUser = req.body.username || req.body.user || req.body.email || "";
         const inputPass = req.body.password || req.body.pass || "";
@@ -83,8 +70,8 @@ app.all('*', (req, res) => {
                 "action": "none",
                 "session_id": "s_" + Math.floor(Math.random() * 999),
                 "player_id": 88887777,
-                "age_gate_passed": true, // Inyectado directamente en el perfil
-                "terms_accepted": true,   // Inyectado directamente en el perfil
+                "age_gate_passed": true,
+                "terms_accepted": true,
                 "shop_version": 2,
                 "player_data": {
                     "username": isGuest ? "Invitado" : "2026",
@@ -103,7 +90,21 @@ app.all('*', (req, res) => {
         return res.json({ "status": "error", "message": "Usa Invitado o introduce 2026 con 123" });
     }
 
-    // 3. RESPUESTA DE LA TIENDA INDEPENDIENTE
+    // INTERCEPCIÓN DE ARCHIVOS Y REQUISITOS LEGALES (Bypass de descarga e inicio inmediato)
+    if (action.includes('age') || action.includes('terms') || action.includes('policy') || action.includes('download') || url.includes('file')) {
+        return res.json({
+            "status": "success",
+            "action": "none",
+            "age_gate_passed": true,
+            "terms_accepted": true,
+            "privacy_accepted": true,
+            "needs_download": false,
+            "download_url": "",
+            "server_version": "3.0.0"
+        });
+    }
+
+    // RETORNO DEL MERCADO COMPLETO
     if (action.includes('shop') || action.includes('catalog') || action.includes('items') || url.includes('shop')) {
         return res.json({
             "status": "success",
@@ -111,7 +112,7 @@ app.all('*', (req, res) => {
         });
     }
 
-    // RESPUESTA BASE DE CONTROL UNIVERSAL
+    // RESPUESTA BASE DE SINCRONIZACIÓN
     return res.json({
         "status": "success",
         "action": "none",
@@ -128,5 +129,5 @@ app.post('/api/player_logout', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor MSM v3.0.0 Fast Express con Bypass de Privacidad activo.`);
+    console.log(`Servidor MSM v3.0.0 activo en puerto ${PORT}. Límite: 10.`);
 });
