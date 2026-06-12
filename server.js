@@ -142,4 +142,3 @@ app.all('*', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Servidor MSM v3.0.0 con respuesta raíz('/') activa en puerto ${PORT}.`);
 });
- 
