@@ -1,7 +1,6 @@
 const express = require('express');
 const app = express();
 
-// Acepta el puerto automático de Railway o cualquier puerto local disponible
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
@@ -11,7 +10,6 @@ let activePlayers = 0;
 const MAX_PLAYERS = 60;
 const massiveTime = 999999999;
 
-// Configuración unificada de islas v3.0.0
 const universalIslands = [
     { "island_id": 1, "i": 1, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999, "max_beds": 999999 },
     { "island_id": 2, "i": 2, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999, "max_beds": 999999 },
@@ -42,27 +40,24 @@ for (const id of baseMonsterIds) {
     }
 }
 
-// CORRECCIÓN: Middleware total para aceptar CUALQUIER cabecera, origen o petición (Acepta "todo todo")
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', '*');
     res.setHeader('Access-Control-Allow-Headers', '*');
-    res.setHeader('Access-Control-Expose-Headers', '*');
     if (req.method === 'OPTIONS') return res.status(200).end();
     next();
 });
 
-// XML de enrutamiento principal (Redirige dinámicamente todo el tráfico del juego)
+// XML que lee tu URL de Railway de forma nativa e independiente
 app.all('/', (req, res) => {
     if (req.method === 'HEAD') return res.status(200).end();
     
-    // Si el juego pide el XML inicial, se lo entregamos de forma estructurada
     res.setHeader('Content-Type', 'text/xml; charset=utf-8');
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     const protocol = req.headers['x-forwarded-proto'] || 'https';
     const secureBaseUrl = `${protocol}://${host}`;
 
-    const xmlConfig = `<?xml version="1.0" encoding="utf-8"?>
+    return res.status(200).send(`<?xml version="1.0" encoding="utf-8"?>
 <config>
     <game_version>3.0.0</game_version>
     <status>1</status>
@@ -72,32 +67,51 @@ app.all('/', (req, res) => {
         <shop>${secureBaseUrl}/api</shop>
     </services>
     <legal><age_gate>1</age_gate><terms_accepted>1</terms_accepted><privacy_accepted>1</privacy_accepted></legal>
-</config>`;
-    return res.status(200).send(xmlConfig.trim());
+</config>`.trim());
 });
 
-// NUEVO: Sistema Adaptativo Inteligente (Maneja /api y CUALQUIER ruta que invente el juego)
+// CORE UNIFICADO: Procesa todo bajo la misma ruta adaptativa sin fallos de arrays
 app.all('*', (req, res) => {
+    if (req.originalUrl.includes('favicon') || req.originalUrl.includes('well-known')) {
+        return res.status(404).end();
+    }
+
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     
-    // Captura cualquier variable de acción enviada por el APK
     const action = String(req.body.action || req.query.action || req.body.cmd || "").toLowerCase();
     const url = String(req.originalUrl).toLowerCase();
 
-    // Bloque de Autenticación
-    if (action.includes('login') || action.includes('auth') || url.includes('login') || action.includes('start') || action.includes('user')) {
+    console.log(`[Petición Solicitada]: URL: ${url} | Action: ${action}`);
+
+    // CORRECCIÓN: Extracción segura de String para el nombre de usuario
+    const inputUser = String(req.body.username || req.body.user || req.body.email || "").trim();
+    let displayName = "Invitado";
+    
+    if (inputUser && inputUser !== "") {
+        // .split() ahora extrae correctamente solo el texto del índice [0] para evitar el formato Array
+        displayName = inputUser.includes('@') ? inputUser.split('@')[0] : inputUser;
+    }
+
+    const customPlayerData = {
+        "username": displayName, "n": displayName,
+        "level": 75, "l": 75,
+        "coins": 999999999, "co": 999999999,
+        "diamonds": 99999999, "di": 99999999,
+        "keys": 99999999, "ke": 99999999,
+        "food": 999999999, "fo": 999999999,
+        "relics": 99999999, "re": 99999999,
+        "starpower": 99999999, "st": 99999999,
+        "islands": universalIslands, "islands_data": universalIslands,
+        "monsters": [],
+        "unlocked_costumes": ["*"], 
+        "costumes": [{ "costume_id": "*", "unlocked": 1, "u": 1 }]
+    };
+
+    // Bloque de Autenticación / Inicio de sesión
+    if (action.includes('login') || action.includes('auth') || url.includes('login') || action.includes('start') || req.body.user || req.body.username) {
         if (activePlayers >= MAX_PLAYERS) {
-            return res.status(503).json({ "status": 1, "success": true, "error": "full" }); // Forzado a responder positivo para no tumbar el APK
+            return res.json({ "status": 1, "success": true, "error": "full" });
         }
-
-        const inputUser = String(req.body.username || req.body.user || req.body.email || "").trim();
-        const isGuest = action.includes('guest') || req.body.guest || !inputUser;
-
-        let displayName = "Invitado";
-        if (!isGuest) {
-            displayName = inputUser.includes('@') ? inputUser.split('@')[0] : inputUser;
-        }
-
         activePlayers++;
 
         return res.json({
@@ -105,55 +119,27 @@ app.all('*', (req, res) => {
             "success": true,
             "session_id": `s_${Date.now()}`, "sid": `s_${Date.now()}`,
             "player_id": Math.floor(1000000 + Math.random() * 9000000), "pid": Math.floor(1000000 + Math.random() * 9000000),
-            "player_data": {
-                "username": displayName, "n": displayName,
-                "level": 75, "l": 75,
-                "coins": 999999999, "co": 999999999,
-                "diamonds": 99999999, "di": 99999999,
-                "keys": 99999999, "ke": 99999999,
-                "food": 999999999, "fo": 999999999,
-                "relics": 99999999, "re": 99999999,
-                "starpower": 99999999, "st": 99999999,
-                "islands": universalIslands, "islands_data": universalIslands,
-                "monsters": [],
-                "unlocked_costumes": ["*"], 
-                "costumes": [{ "costume_id": "*", "unlocked": 1, "u": 1 }]
-            }
+            "player_data": customPlayerData
         });
     }
 
-    // Bloque de Tienda
+    // Tienda
     if (action.includes('shop') || action.includes('catalog') || url.includes('shop')) {
         return res.json({ "status": 1, "success": true, "monsters": universalShop });
     }
 
-    // Desconexión / Salida
-    if (action.includes('logout') || action.includes('leave') || action.includes('disconnect')) {
-        if (activePlayers > 0) activePlayers--;
-        return res.json({ "status": 1, "success": true });
-    }
-
-    // ADAPTACIÓN AUTOMÁTICA: Si el juego pide una ruta o comando desconocido (ej. 'get_news', 'save_settings', 'gacha')
-    // el script analiza qué clave pidió y le responde con un JSON exitoso clonando la estructura esperada de MSM.
-    console.log(`[Petición Desconocida Adaptada]: URL: ${url} | Action: ${action}`);
-    
-    const respuestaAdaptada = {
-        "status": 1, 
+    // Adaptación automática para cualquier comando desconocido de sincronización de la versión 3.0.0
+    return res.json({
+        "status": 1,
         "success": true,
         "server_version": "3.0.0",
-        "action_processed": action || "generic"
-    };
-
-    // Si la petición pide listas o datos específicos, le inyectamos arrays vacíos automáticos para que el APK no se rompa
-    if (action.includes('get') || url.includes('list') || url.includes('fetch')) {
-        const posibleClaveData = action.replace('get_', '') || "data";
-        respuestaAdaptada[posibleClaveData] = [];
-    }
-
-    return res.json(respuestaAdaptada);
+        "session_id": `s_${Date.now()}`,
+        "player_id": 7777777,
+        "player_data": customPlayerData,
+        "monsters": universalShop
+    });
 });
 
-// Inicia el servidor en el puerto mapeado globalmente
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Servidor MSM Absoluto y Adaptativo corriendo en puerto ${PORT}.`);
+    console.log(`Servidor MSM listo en producción sobre puerto ${PORT}.`);
 });
