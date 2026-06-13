@@ -8,7 +8,6 @@ app.use(express.urlencoded({ extended: true }));
 
 let activePlayers = 0;
 const MAX_PLAYERS = 60;
-const massiveTime = 999999999;
 
 const universalIslands = [
     { "island_id": 1, "i": 1, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999, "max_beds": 999999 },
@@ -23,14 +22,7 @@ const universalIslands = [
     { "island_id": 15, "i": 15, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999, "max_beds": 999999 }
 ];
 
-// SOLUCIÓN AQUÍ: Los IDs de los monstruos ya están puestos dentro de los corchetes
-const baseMonsterIds = [
-    1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-    30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 50, 51, 52, 53, 54,
-    70, 71, 72, 73, 74, 80, 81, 82, 83, 84,
-    90, 91, 92, 93, 94, 95, 96,
-    201, 202, 203, 204, 205, 211, 212, 213, 214, 215
-];
+const baseMonsterIds =;
 
 const universalShop = [];
 for (const id of baseMonsterIds) {
@@ -49,9 +41,15 @@ app.use((req, res, next) => {
     next();
 });
 
-app.all('/', (req, res) => {
-    if (req.method === 'HEAD') return res.status(200).end();
-    
+// SOLUCIÓN AL HEALTHCHECK: Si Railway o el juego piden la raíz con HEAD o GET vacío, responde al instante
+app.head('/', (req, res) => res.status(200).end());
+
+app.get('/', (req, res) => {
+    // Si la petición viene de Railway (User-Agent de monitoreo), responde 200 plano de inmediato
+    if (String(req.headers['user-agent']).includes('Railway') || !req.headers.host) {
+        return res.status(200).send("OK");
+    }
+
     res.setHeader('Content-Type', 'text/xml; charset=utf-8');
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     const protocol = req.headers['x-forwarded-proto'] || 'https';
@@ -70,6 +68,7 @@ app.all('/', (req, res) => {
 </config>`.trim());
 });
 
+// CORE ADAPTATIVO PARA EL APK
 app.all('*', (req, res) => {
     if (req.originalUrl.includes('favicon') || req.originalUrl.includes('well-known')) {
         return res.status(404).end();
@@ -86,7 +85,7 @@ app.all('*', (req, res) => {
     let displayName = "Invitado";
     
     if (inputUser && inputUser !== "") {
-        displayName = inputUser.includes('@') ? inputUser.split('@')[0] : inputUser;
+        displayName = inputUser.includes('@') ? inputUser.split('@') : inputUser;
     }
 
     const customPlayerData = {
