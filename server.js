@@ -23,7 +23,7 @@ const universalIslands = [
     { "island_id": 15, "i": 15, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999, "max_beds": 999999 }
 ];
 
-// CORRECCIÓN: Lista original de IDs restaurada correctamente
+// SOLUCIÓN AQUÍ: Los IDs de los monstruos ya están puestos dentro de los corchetes
 const baseMonsterIds = [
     1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
     30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 50, 51, 52, 53, 54,
@@ -137,4 +137,3 @@ app.all('*', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor MSM listo en producción sobre puerto ${PORT}.`);
 });
- 
