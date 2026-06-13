@@ -23,6 +23,7 @@ const universalIslands = [
     { "island_id": 15, "i": 15, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999, "max_beds": 999999 }
 ];
 
+// CORRECCIÓN: Lista original de IDs restaurada correctamente
 const baseMonsterIds = [
     1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
     30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 50, 51, 52, 53, 54,
@@ -48,7 +49,6 @@ app.use((req, res, next) => {
     next();
 });
 
-// XML que lee tu URL de Railway de forma nativa e independiente
 app.all('/', (req, res) => {
     if (req.method === 'HEAD') return res.status(200).end();
     
@@ -70,7 +70,6 @@ app.all('/', (req, res) => {
 </config>`.trim());
 });
 
-// CORE UNIFICADO: Procesa todo bajo la misma ruta adaptativa sin fallos de arrays
 app.all('*', (req, res) => {
     if (req.originalUrl.includes('favicon') || req.originalUrl.includes('well-known')) {
         return res.status(404).end();
@@ -83,12 +82,10 @@ app.all('*', (req, res) => {
 
     console.log(`[Petición Solicitada]: URL: ${url} | Action: ${action}`);
 
-    // CORRECCIÓN: Extracción segura de String para el nombre de usuario
     const inputUser = String(req.body.username || req.body.user || req.body.email || "").trim();
     let displayName = "Invitado";
     
     if (inputUser && inputUser !== "") {
-        // .split() ahora extrae correctamente solo el texto del índice [0] para evitar el formato Array
         displayName = inputUser.includes('@') ? inputUser.split('@')[0] : inputUser;
     }
 
@@ -107,7 +104,6 @@ app.all('*', (req, res) => {
         "costumes": [{ "costume_id": "*", "unlocked": 1, "u": 1 }]
     };
 
-    // Bloque de Autenticación / Inicio de sesión
     if (action.includes('login') || action.includes('auth') || url.includes('login') || action.includes('start') || req.body.user || req.body.username) {
         if (activePlayers >= MAX_PLAYERS) {
             return res.json({ "status": 1, "success": true, "error": "full" });
@@ -123,12 +119,10 @@ app.all('*', (req, res) => {
         });
     }
 
-    // Tienda
     if (action.includes('shop') || action.includes('catalog') || url.includes('shop')) {
         return res.json({ "status": 1, "success": true, "monsters": universalShop });
     }
 
-    // Adaptación automática para cualquier comando desconocido de sincronización de la versión 3.0.0
     return res.json({
         "status": 1,
         "success": true,
@@ -143,3 +137,4 @@ app.all('*', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor MSM listo en producción sobre puerto ${PORT}.`);
 });
+ 
