@@ -1,0 +1,5 @@
+{
+  "scratch_offs": [
+    { "scratch_id": 1, "pool_type": "common", "rewards": [{ "type": "coins", "amount": 100 }, { "type": "food", "amount": 50 }] }
+  ]
+}
