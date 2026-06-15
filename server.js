@@ -11,15 +11,15 @@ app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 const dbCache = {};
 const DATA_DIR = path.join(__dirname, 'data');
 
-// 💾 Control de aforo en memoria RAM
+// 💾 Control de aforo en tiempo real (Máx 30)
 const activeSessions = {}; 
 const MAX_ONLINE_PLAYERS = 30;
-const SESSION_TTL = 15 * 60 * 1000; // Las sesiones expiran tras 15 minutos de inactividad
+const SESSION_TTL = 15 * 60 * 1000; 
 
-// 🔄 LECTOR ASÍNCRONO AUTOMÁTICO (Ejecución en segundo plano)
+// 🔄 LECTOR ASÍNCRONO PARALELO ULTRA-RÁPIDO (Carga todo al mismo tiempo)
 async function cargarBasesDeDatos() {
-    console.log("====================================================");
-    console.log("🔄 [GitHub Deploy] Cargando archivos JSON uno por uno...");
+    console.log("\n====================================================");
+    console.log("🔄 [ESTADO] Iniciando indexación en paralelo desde /data...");
     console.log("====================================================");
     
     const basesDeDatos = [
@@ -28,23 +28,30 @@ async function cargarBasesDeDatos() {
         'db_level', 'db_monster', 'db_store', 'db_store_v2', 'db_structures'
     ];
 
-    for (const dbName of basesDeDatos) {
-        const filePath = path.join(DATA_DIR, `${dbName}.json`);
-        try {
-            const data = await fs.readFile(filePath, 'utf8');
-            dbCache[dbName] = JSON.parse(data);
-            console.log(`⚡ [JSON OK] -> Indexado: ${dbName}.json`);
-        } catch (err) {
-            dbCache[dbName] = [];
-            console.log(`⚠️ [Aviso] -> Usando vacío para: ${dbName}.json`);
-        }
+    try {
+        // Mapeamos todos los archivos para leerlos simultáneamente en paralelo
+        await Promise.all(basesDeDatos.map(async (dbName) => {
+            const filePath = path.join(DATA_DIR, `${dbName}.json`);
+            try {
+                const data = await fs.readFile(filePath, 'utf8');
+                dbCache[dbName] = JSON.parse(data);
+                console.log(`⚡ [✓ JSON CARGADO] -> ${dbName}.json listo en RAM.`);
+            } catch (err) {
+                dbCache[dbName] = [];
+                console.log(`⚠️ [AVISO] -> Archivo ausente o vacío: ${dbName}.json (Array vacío asignado).`);
+            }
+        }));
+
+        console.log("====================================================");
+        console.log("🟢 [ESTADO] ¡Sincronización masiva completada con éxito!");
+        console.log("🚀 [ESTADO] El servidor MSM está 100% funcional y listo para jugar.");
+        console.log("====================================================\n");
+    } catch (error) {
+        console.error("❌ [ERROR CRÍTICO] Error cargando base de datos:", error.message);
     }
-    console.log("====================================================");
-    console.log("🚀 [Sincronización Completada] Datos listos para el APK.");
-    console.log("====================================================");
 }
 
-// 🏁 VALVE HEALTH CHECK (Imprescindible para el despliegue automático de Railway)
+// 🏁 RESPUESTA INMEDIATA ANTI-CRASH (Railway ve que funciona al instante)
 app.get('/', (req, res) => res.status(200).send('OK'));
 app.post('/', (req, res) => {
     if (!req.body?.action && !req.body?.cmd) return res.status(200).send('OK');
@@ -55,13 +62,13 @@ app.post('/', (req, res) => {
 const handleGame = (req, res) => {
     try {
         const action = req.body?.action || req.query?.action || req.body?.cmd || req.query?.cmd;
-        if (action) console.log(`📩 [Comando] -> "${action}"`);
+        if (action) console.log(`📩 [APK REQ] Acción solicitada: "${action}"`);
 
-        // 🔐 ACCESO CENTRALIZADO (Login Convencional o Anónimo -> Todos van a Kairox)
+        // 🔐 ACCESO ÚNICO GLOBAL (Login o Anónimo siempre van a Kairox)
         if (action === 'gs_player') {
             const ahora = Date.now();
             
-            // Limpieza express de sesiones inactivas antes de comprobar el aforo
+            // Limpieza rápida de sesiones muertas
             for (const id in activeSessions) {
                 if (ahora - activeSessions[id] > SESSION_TTL) delete activeSessions[id];
             }
@@ -69,25 +76,18 @@ const handleGame = (req, res) => {
             // Validar límite estricto de 30 jugadores activos
             const totalOnline = Object.keys(activeSessions).length;
             if (totalOnline >= MAX_ONLINE_PLAYERS) {
-                console.log(`🚫 [Aforo Lleno] Denegando acceso. (${totalOnline}/${MAX_ONLINE_PLAYERS})`);
+                console.log(`🚫 [CONEXIÓN] Acceso denegado. Servidor lleno: ${totalOnline}/${MAX_ONLINE_PLAYERS}`);
                 return res.json({
-                    player: { 
-                        user_id: 0, 
-                        display_name: "SERVIDOR_LLENO_INTENTA_LUEGO", 
-                        level: 1, 
-                        coins: 0, 
-                        diamonds: 0 
-                    }
+                    player: { user_id: 0, display_name: "SERVER_LLENO_REINTENTA", level: 1, coins: 0, diamonds: 0 }
                 });
             }
 
-            // Generamos un identificador único por cada dispositivo conectado para contar el aforo
+            // Registrar sesión del jugador mediante su id de dispositivo o una id aleatoria
             const deviceToken = req.body?.device_id || req.body?.mac || `session_${Math.floor(100000 + Math.random() * 900000)}`;
             activeSessions[deviceToken] = ahora;
 
-            console.log(`🟢 [Login Exitoso] Asignando cuenta global 'Kairox'. Online: ${Object.keys(activeSessions).length}/${MAX_ONLINE_PLAYERS}`);
+            console.log(`👤 [CONEXIÓN] Nueva entrada. Jugador asignado a 'Kairox'. Online: ${Object.keys(activeSessions).length}/${MAX_ONLINE_PLAYERS}`);
 
-            // Estructura de guardado compartida de nivel 75
             return res.json({
                 player: {
                     user_id: 777777,
@@ -108,12 +108,12 @@ const handleGame = (req, res) => {
             });
         }
 
-        // Configuración de inicio obligatoria
+        // Configuración inicial obligatoria del motor de juego
         if (action === 'game_settings') {
             return res.json({ status: "success", settings: { maintenance: false, client_version_required: "1.0.0", is_available: true } });
         }
 
-        // 📂 ENTREGA DINÁMICA DE TABLAS DESDE MEMORIA RAM
+        // 📂 ENVÍO INMEDIATO DE LAS TABLAS DE DATOS DESDE CACHÉ RAM
         if (action && action.startsWith('db_')) {
             const dataFiltrada = dbCache[action] || [];
             if (dataFiltrada && typeof dataFiltrada === 'object' && !Array.isArray(dataFiltrada) && dataFiltrada[action.replace('db_', '')]) {
@@ -122,7 +122,7 @@ const handleGame = (req, res) => {
             return res.json({ [action.replace('db_', '')]: dataFiltrada });
         }
 
-        // Mapeo unificado contra excepciones y crasheos de la biblioteca nativa
+        // Mapeo defensivo de todos los métodos nativos de libmonsters.so
         const metodosNativos = [
             'gs_is_registered', 'check_username', 'log_client_error', 'client_log', 'analytics_event',
             'get_eligible_offers', 'get_store_products', 'sync_purchases', 'get_ad_settings', 'ad_config',
@@ -165,12 +165,15 @@ app.all('/game_request', handleGame);
 app.all('/publicidad', handleGame);
 app.all('/log', handleGame);
 
-// 🚀 APERTURA INMEDIATA DE LA RED DE CONTROL
+// 🚀 INICIO DEL SERVIDOR E INYECCIÓN DE DATOS
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 [ONLINE] Servidor unificado desplegado en el puerto: ${PORT}`);
+    console.log(`\n====================================================`);
+    console.log(`🟢 [ESTADO] Servidor iniciado correctamente en puerto: ${PORT}`);
+    console.log(`📡 [ESTADO] Red abierta. Respondiendo pings de Railway...`);
+    console.log(`====================================================`);
     
-    // Una vez que Railway recibe el 'OK' de que el puerto está abierto, el despliegue finaliza con éxito
-    // y comenzamos a levantar los JSON de la carpeta /data de tu repositorio en segundo plano.
+    // Ejecutamos la lectura pesada del repositorio de forma asíncrona y paralela
+    // A partir de este milisegundo, Railway ya ve el contenedor activo y estable.
     cargarBasesDeDatos();
 });
 
