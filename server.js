@@ -139,7 +139,7 @@ app.post('/game_request', (req, res) => {
     }
 });
 
-// Inicialización del servidor
-app.listen(PORT, () => {
-    console.log(`[Servidor] Emulador MSM optimizado corriendo en puerto ${PORT} (Modo: ${process.env.NODE_ENV || 'development'})`);
+// Inicialización del servidor vinculando la IP de red pública requerida por Railway
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[Servidor] Emulador MSM activo en el puerto ${PORT} (Host: 0.0.0.0)`);
 });
