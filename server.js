@@ -18,34 +18,40 @@ app.use(bodyParser.json({ limit: '1mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
 
 // ===================================================
-// SISTEMA DE CACHÉ EN MEMORIA (PRECARGA DE DATA)
+// SISTEMA DE CACHÉ EN MEMORIA (PRECARGA DE /DATA)
 // ===================================================
 const dataCache = {};
+// Apunta de forma segura a la carpeta /data en la raíz del proyecto
 const dataDir = path.join(__dirname, 'data');
+
+console.log(`[Sistema] Buscando archivos de configuración en: ${dataDir}`);
 
 // Leer la carpeta /data una sola vez al arrancar el servidor
 if (fs.existsSync(dataDir)) {
     const files = fs.readdirSync(dataDir);
+    let loadedCount = 0;
+
     files.forEach(file => {
         if (file.endsWith('.json')) {
             const actionName = path.basename(file, '.json');
             try {
                 const content = fs.readFileSync(path.join(dataDir, file), 'utf8');
                 dataCache[actionName] = JSON.parse(content);
-                console.log(`[Caché] Cargado con éxito: ${actionName}`);
+                loadedCount++;
             } catch (err) {
-                console.error(`[Error] No se pudo parsear el archivo ${file}:`, err.message);
+                console.error(`[Error] No se pudo parsear el archivo /data/${file}:`, err.message);
             }
         }
     });
+    console.log(`[Caché] Se cargaron con éxito ${loadedCount} archivos JSON desde /data.`);
 } else {
-    console.warn(`[Alerta] La carpeta 'data' no existe en la raíz.`);
+    console.warn(`[Alerta Critical] La carpeta '/data' no fue encontrada en la raíz del proyecto.`);
 }
 
-// Logger ultra-ligero para producción
+// Logger ultra-ligero para desarrollo
 app.use((req, res, next) => {
     if (!IS_PROD) {
-        console.log(`[${new Date().toLocaleTimeString()}] ${req.body.action || req.url}`);
+        console.log(`[${new Date().toLocaleTimeString()}] Petición entrante: ${req.body.action || req.url}`);
     }
     next();
 });
@@ -65,19 +71,19 @@ app.post('/game_request', (req, res) => {
         if (dataCache[action]) {
             return res.json(dataCache[action]);
         }
-        // Fallback rápido si el archivo no existe en la carpeta data
+        // Fallback rápido si el archivo no existe dentro de /data
         const fallbackKey = action.replace('db_', '');
         return res.json({ [fallbackKey]: [] });
     }
 
-    // 2. ENRUTAMIENTO DE LOGICA DE JUEGO gs_*
+    // 2. ENRUTAMIENTO DE LÓGICA DE JUEGO gs_*
     switch (action) {
         case 'gs_player':
             return res.json({
                 player: {
                     user_id: 123456,
                     display_name: "Jugador_Anonimo",
-                    coins: 9999999, // Monedas modificadas para pruebas rápido
+                    coins: 9999999, 
                     diamonds: 5000,
                     level: 30,
                     xp: 500000
@@ -87,7 +93,6 @@ app.post('/game_request', (req, res) => {
         case 'gs_quest':
             return res.json({ active_quests: [] });
 
-        // Unificamos todas las respuestas vacías obligatorias en una sola línea
         case 'gs_timed_events':
         case 'gs_rare_monster_data':
         case 'gs_epic_monster_data':
@@ -122,7 +127,6 @@ app.post('/game_request', (req, res) => {
             return res.json({ status: "test_ok", types: ["int", "long", "utf-string"] });
 
         default:
-            // Si el cliente pide un gs_ nuevo, responde éxito para que no se congele
             return res.json({ status: "success", action_emulated: action });
     }
 });
