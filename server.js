@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
+// Railway asigna el puerto dinámicamente; si no, usa el 3000 por defecto
 const PORT = process.env.PORT || 3000;
 
 // Omitir logs pesados en producción para mejorar la velocidad
@@ -18,10 +19,17 @@ app.use(bodyParser.json({ limit: '1mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
 
 // ===================================================
+// RUTA DE CONTROL DE SALUD (HEALTH CHECK PARA RAILWAY)
+// ===================================================
+// Esta ruta evita el error 'Stopping Container' al responder con éxito a Railway
+app.get('/', (req, res) => {
+    res.status(200).send('Servidor MSM Activo y Corriendo');
+});
+
+// ===================================================
 // SISTEMA DE CACHÉ EN MEMORIA (PRECARGA DE /DATA)
 // ===================================================
 const dataCache = {};
-// Apunta de forma segura a la carpeta /data en la raíz del proyecto
 const dataDir = path.join(__dirname, 'data');
 
 console.log(`[Sistema] Buscando archivos de configuración en: ${dataDir}`);
@@ -45,7 +53,7 @@ if (fs.existsSync(dataDir)) {
     });
     console.log(`[Caché] Se cargaron con éxito ${loadedCount} archivos JSON desde /data.`);
 } else {
-    console.warn(`[Alerta Critical] La carpeta '/data' no fue encontrada en la raíz del proyecto.`);
+    console.warn(`[Alerta Crítica] La carpeta '/data' no fue encontrada en la raíz del proyecto.`);
 }
 
 // Logger ultra-ligero para desarrollo
