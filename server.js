@@ -9,28 +9,35 @@ const PORT = process.env.PORT || 8080;
 
 app.use(compression());
 
-// Soporte completo para capturar cualquier formato de datos enviado por el APK
+// ===================================================
+// RUTA DE ALTA PRIORIDAD PARA EL HEALTH CHECK (RAILWAY)
+// ===================================================
+// Esta ruta responde instantáneamente antes de activar cualquier middleware
+// para garantizar que Railway vea el contenedor verde y estable sin apagarlo.
+app.get('/', (req, res) => {
+    return res.status(200).send('Servidor MSM Activo y Corriendo');
+});
+
+// Configuración de procesadores de datos
 app.use(bodyParser.json({ limit: '2mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '2mb' }));
 
 // ===================================================
-// MIDDLEWARE DE RASTREO EXHAUSTIVO (MUESTRA CADA PETICIÓN)
+// MIDDLEWARE DE RASTREO EXHAUSTIVO PARA EL APK
 // ===================================================
+// Solo rastreará el tráfico que vaya dirigido al juego, ignorando las pruebas de red
 app.use((req, res, next) => {
     console.log(`\n--- [NUEVA PETICIÓN DETECTADA] ---`);
-    console.log(`Hora: [${new Date().toLocaleTimeString()}]`);
-    console.log(`Método: ${req.method} | Ruta: ${req.url}`);
+    console.log(`Hora: [${new Date().toLocaleTimeString()}] | Método: ${req.method} | Ruta: ${req.url}`);
     
-    // Mostrar parámetros pasados en la URL (ej. ?action=test)
     if (Object.keys(req.query).length > 0) {
         console.log(`Query Params:`, JSON.stringify(req.query, null, 2));
     }
     
-    // Mostrar cuerpo de la petición (ej. datos POST enviados por el juego)
     if (Object.keys(req.body).length > 0) {
         console.log(`Body Data:`, JSON.stringify(req.body, null, 2));
     } else if (req.method === 'POST') {
-        console.log(`[Aviso] Petición POST recibida pero el cuerpo (body) está completamente vacío.`);
+        console.log(`[Aviso] Petición POST recibida pero el cuerpo está vacío.`);
     }
     console.log(`-----------------------------------\n`);
     next();
@@ -61,24 +68,18 @@ if (fs.existsSync(dataDir)) {
     console.log(`[Caché] Se cargaron con éxito ${loadedCount} archivos JSON desde /data.`);
 }
 
-// 1. MANEJAR PETICIONES GET (Para el Health Check de Railway y pruebas en navegador)
-app.get('/', (req, res) => {
-    res.status(200).send('Servidor MSM Activo y Corriendo');
-});
-
-// 2. CONTROLADOR CENTRAL DE PETICIONES DEL JUEGO (Captura tanto '/' como '/game_request')
+// ===================================================
+// CONTROLADOR CENTRAL DE PETICIONES DEL JUEGO
+// ===================================================
 const handleGameTraffic = (req, res) => {
-    // Buscar la acción en JSON (req.body.action) o en Formulario/URL (req.body.action o req.query.action)
     const action = req.body.action || req.query.action;
 
-    // Si Railway o un navegador envía un POST sin 'action', responder éxito operativo
     if (!action) {
         return res.json({ status: "alive", message: "En espera de parámetros válidos del APK" });
     }
 
     console.log(`[Procesando] Ejecutando respuesta para la acción: ${action}`);
 
-    // Procesar peticiones estáticas db_*
     if (action.startsWith('db_')) {
         if (dataCache[action]) {
             return res.json(dataCache[action]);
@@ -87,7 +88,6 @@ const handleGameTraffic = (req, res) => {
         return res.json({ [fallbackKey]: [] });
     }
 
-    // Procesar lógica dinámica del estado de juego e inicio de sesión gs_*
     switch (action) {
         case 'gs_player':
             return res.json({
@@ -142,9 +142,9 @@ const handleGameTraffic = (req, res) => {
     }
 };
 
-// Escuchar en ambas rutas posibles para capturar cualquier redirección del APK
-app.post('/', handleGameTraffic);
+// Capturar el tráfico del juego en la sub-ruta específica
 app.post('/game_request', handleGameTraffic);
+app.post('/', handleGameTraffic);
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Servidor] Emulador MSM activo en el puerto ${PORT}`);
