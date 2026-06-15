@@ -5,25 +5,35 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
+const PORT = process.env.PORT || 8080;
 
-// Si Railway pasa un puerto nulo, indefinido o '0', forzamos el uso del puerto 8080
-let PORT = process.env.PORT;
-if (!PORT || PORT === '0') {
-    PORT = 8080;
-}
-
-const IS_PROD = process.env.NODE_ENV === 'production';
-
-// Habilitar compresión Gzip para transferir datos más rápido al APK
 app.use(compression());
 
-// Configuración de Body Parser
-app.use(bodyParser.json({ limit: '1mb' }));
-app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
+// Soporte completo para capturar cualquier formato de datos enviado por el APK
+app.use(bodyParser.json({ limit: '2mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '2mb' }));
 
-// Ruta raíz obligatoria para pasar el Health Check de Railway de forma inmediata
-app.get('/', (req, res) => {
-    res.status(200).send('Servidor MSM Activo y Corriendo');
+// ===================================================
+// MIDDLEWARE DE RASTREO EXHAUSTIVO (MUESTRA CADA PETICIÓN)
+// ===================================================
+app.use((req, res, next) => {
+    console.log(`\n--- [NUEVA PETICIÓN DETECTADA] ---`);
+    console.log(`Hora: [${new Date().toLocaleTimeString()}]`);
+    console.log(`Método: ${req.method} | Ruta: ${req.url}`);
+    
+    // Mostrar parámetros pasados en la URL (ej. ?action=test)
+    if (Object.keys(req.query).length > 0) {
+        console.log(`Query Params:`, JSON.stringify(req.query, null, 2));
+    }
+    
+    // Mostrar cuerpo de la petición (ej. datos POST enviados por el juego)
+    if (Object.keys(req.body).length > 0) {
+        console.log(`Body Data:`, JSON.stringify(req.body, null, 2));
+    } else if (req.method === 'POST') {
+        console.log(`[Aviso] Petición POST recibida pero el cuerpo (body) está completamente vacío.`);
+    }
+    console.log(`-----------------------------------\n`);
+    next();
 });
 
 // Sistema de caché en memoria RAM para la carpeta /data
@@ -49,26 +59,26 @@ if (fs.existsSync(dataDir)) {
         }
     });
     console.log(`[Caché] Se cargaron con éxito ${loadedCount} archivos JSON desde /data.`);
-} else {
-    console.warn(`[Alerta Crítica] La carpeta '/data' no fue encontrada en la raíz del proyecto.`);
 }
 
-// Logger ligero para monitorizar peticiones entrantes
-app.use((req, res, next) => {
-    if (!IS_PROD) {
-        console.log(`[${new Date().toLocaleTimeString()}] Petición entrante: ${req.body.action || req.url}`);
-    }
-    next();
+// 1. MANEJAR PETICIONES GET (Para el Health Check de Railway y pruebas en navegador)
+app.get('/', (req, res) => {
+    res.status(200).send('Servidor MSM Activo y Corriendo');
 });
 
-// Ruta unificada para las peticiones del juego
-app.post('/game_request', (req, res) => {
-    const { action } = req.body;
+// 2. CONTROLADOR CENTRAL DE PETICIONES DEL JUEGO (Captura tanto '/' como '/game_request')
+const handleGameTraffic = (req, res) => {
+    // Buscar la acción en JSON (req.body.action) o en Formulario/URL (req.body.action o req.query.action)
+    const action = req.body.action || req.query.action;
 
+    // Si Railway o un navegador envía un POST sin 'action', responder éxito operativo
     if (!action) {
-        return res.status(400).json({ error: "Falta el parámetro 'action'" });
+        return res.json({ status: "alive", message: "En espera de parámetros válidos del APK" });
     }
 
+    console.log(`[Procesando] Ejecutando respuesta para la acción: ${action}`);
+
+    // Procesar peticiones estáticas db_*
     if (action.startsWith('db_')) {
         if (dataCache[action]) {
             return res.json(dataCache[action]);
@@ -77,12 +87,13 @@ app.post('/game_request', (req, res) => {
         return res.json({ [fallbackKey]: [] });
     }
 
+    // Procesar lógica dinámica del estado de juego e inicio de sesión gs_*
     switch (action) {
         case 'gs_player':
             return res.json({
                 player: {
                     user_id: 123456,
-                    display_name: "Jugador_Anonimo",
+                    display_name: "Jugador_Modificado",
                     coins: 9999999, 
                     diamonds: 5000,
                     level: 30,
@@ -129,9 +140,12 @@ app.post('/game_request', (req, res) => {
         default:
             return res.json({ status: "success", action_emulated: action });
     }
-});
+};
 
-// Vinculación estricta al host 0.0.0.0 requerido por Railway para abrir puertos públicos
+// Escuchar en ambas rutas posibles para capturar cualquier redirección del APK
+app.post('/', handleGameTraffic);
+app.post('/game_request', handleGameTraffic);
+
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Servidor] Emulador MSM activo en el puerto ${PORT} (Host: 0.0.0.0)`);
+    console.log(`[Servidor] Emulador MSM activo en el puerto ${PORT}`);
 });
