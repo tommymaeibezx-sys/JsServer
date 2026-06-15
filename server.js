@@ -1,142 +1,133 @@
 const express = require('express');
-const app = express();
+const bodyParser = require('body-parser');
+const compression = require('compression');
+const fs = require('fs');
+const path = require('path');
 
+const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Omitir logs pesados en producción para mejorar la velocidad
+const IS_PROD = process.env.NODE_ENV === 'production';
 
-let activePlayers = 0;
-const MAX_PLAYERS = 60;
+// Habilitar compresión Gzip para transferir datos más rápido al APK
+app.use(compression());
 
-const universalIslands = [
-    { "island_id": 1, "i": 1, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999, "max_beds": 999999 },
-    { "island_id": 2, "i": 2, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999, "max_beds": 999999 },
-    { "island_id": 3, "i": 3, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999, "max_beds": 999999 },
-    { "island_id": 4, "i": 4, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999, "max_beds": 999999 },
-    { "island_id": 5, "i": 5, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999, "max_beds": 999999 },
-    { "island_id": 11, "i": 11, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999, "max_beds": 999999 },
-    { "island_id": 12, "i": 12, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999, "max_beds": 999999 },
-    { "island_id": 13, "i": 13, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999, "max_beds": 999999 },
-    { "island_id": 14, "i": 14, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999, "max_beds": 999999 },
-    { "island_id": 15, "i": 15, "unlocked": 1, "u": 1, "castle_level": 10, "c": 10, "bed_capacity": 999999, "b": 999999, "max_beds": 999999 }
-];
+// Configuración óptima de Body Parser
+app.use(bodyParser.json({ limit: '1mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
 
-// ARREGLADO: Lista de IDs integrada correctamente dentro de los corchetes
-const baseMonsterIds = [
-    1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-    30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 50, 51, 52, 53, 54,
-    70, 71, 72, 73, 74, 80, 81, 82, 83, 84,
-    90, 91, 92, 93, 94, 95, 96,
-    201, 202, 203, 204, 205, 211, 212, 213, 214, 215
-];
+// ===================================================
+// SISTEMA DE CACHÉ EN MEMORIA (PRECARGA DE DATA)
+// ===================================================
+const dataCache = {};
+const dataDir = path.join(__dirname, 'data');
 
-const universalShop = [];
-for (const id of baseMonsterIds) {
-    universalShop.push({ "monster_id": id, "m": id, "cost_coins": 0, "c": 0, "cost_diamonds": 0, "d": 0, "time_left": 0, "t": 0, "incubation_time": 0, "type": "common", "cl": "common" });
-    if (id < 92 || id >= 201) {
-        universalShop.push({ "monster_id": id + 1000, "m": id + 1000, "cost_coins": 0, "c": 0, "cost_diamonds": 0, "d": 0, "time_left": 0, "t": 0, "incubation_time": 0, "type": "rare", "cl": "rare" });
-        universalShop.push({ "monster_id": id + 2000, "m": id + 2000, "cost_coins": 0, "c": 0, "cost_diamonds": 0, "d": 0, "time_left": 0, "t": 0, "incubation_time": 0, "type": "epic", "cl": "epic" });
-    }
+// Leer la carpeta /data una sola vez al arrancar el servidor
+if (fs.existsSync(dataDir)) {
+    const files = fs.readdirSync(dataDir);
+    files.forEach(file => {
+        if (file.endsWith('.json')) {
+            const actionName = path.basename(file, '.json');
+            try {
+                const content = fs.readFileSync(path.join(dataDir, file), 'utf8');
+                dataCache[actionName] = JSON.parse(content);
+                console.log(`[Caché] Cargado con éxito: ${actionName}`);
+            } catch (err) {
+                console.error(`[Error] No se pudo parsear el archivo ${file}:`, err.message);
+            }
+        }
+    });
+} else {
+    console.warn(`[Alerta] La carpeta 'data' no existe en la raíz.`);
 }
 
+// Logger ultra-ligero para producción
 app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', '*');
-    res.setHeader('Access-Control-Allow-Headers', '*');
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (!IS_PROD) {
+        console.log(`[${new Date().toLocaleTimeString()}] ${req.body.action || req.url}`);
+    }
     next();
 });
 
-app.head('/', (req, res) => res.status(200).end());
+// ===================================================
+// RUTA UNIFICADA DE PETICIONES (LATENCIA BAJA)
+// ===================================================
+app.post('/game_request', (req, res) => {
+    const { action } = req.body;
 
-app.get('/', (req, res) => {
-    if (String(req.headers['user-agent']).includes('Railway') || !req.headers.host) {
-        return res.status(200).send("OK");
+    if (!action) {
+        return res.status(400).json({ error: "Falta el parámetro 'action'" });
     }
 
-    res.setHeader('Content-Type', 'text/xml; charset=utf-8');
-    const host = req.headers['x-forwarded-host'] || req.headers.host;
-    const protocol = req.headers['x-forwarded-proto'] || 'https';
-    const secureBaseUrl = `${protocol}://${host}`;
-
-    return res.status(200).send(`<?xml version="1.0" encoding="utf-8"?>
-<config>
-    <game_version>3.0.0</game_version>
-    <status>1</status>
-    <services>
-        <gateway>${secureBaseUrl}/api</gateway>
-        <login>${secureBaseUrl}/api</login>
-        <shop>${secureBaseUrl}/api</shop>
-    </services>
-    <legal><age_gate>1</age_gate><terms_accepted>1</terms_accepted><privacy_accepted>1</privacy_accepted></legal>
-</config>`.trim());
-});
-
-app.all('*', (req, res) => {
-    if (req.originalUrl.includes('favicon') || req.originalUrl.includes('well-known')) {
-        return res.status(404).end();
-    }
-
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    
-    const action = String(req.body.action || req.query.action || req.body.cmd || "").toLowerCase();
-    const url = String(req.originalUrl).toLowerCase();
-
-    console.log(`[Petición Solicitada]: URL: ${url} | Action: ${action}`);
-
-    const inputUser = String(req.body.username || req.body.user || req.body.email || "").trim();
-    let displayName = "Invitado";
-    
-    if (inputUser && inputUser !== "") {
-        displayName = inputUser.includes('@') ? inputUser.split('@')[0] : inputUser;
-    }
-
-    const customPlayerData = {
-        "username": displayName, "n": displayName,
-        "level": 75, "l": 75,
-        "coins": 999999999, "co": 999999999,
-        "diamonds": 99999999, "di": 99999999,
-        "keys": 99999999, "ke": 99999999,
-        "food": 999999999, "fo": 999999999,
-        "relics": 99999999, "re": 99999999,
-        "starpower": 99999999, "st": 99999999,
-        "islands": universalIslands, "islands_data": universalIslands,
-        "monsters": [],
-        "unlocked_costumes": ["*"], 
-        "costumes": [{ "costume_id": "*", "unlocked": 1, "u": 1 }]
-    };
-
-    if (action.includes('login') || action.includes('auth') || url.includes('login') || action.includes('start') || req.body.user || req.body.username) {
-        if (activePlayers >= MAX_PLAYERS) {
-            return res.json({ "status": 1, "success": true, "error": "full" });
+    // 1. RESPUESTA DESDE MEMORIA RAM PARA PETICIONES db_*
+    if (action.startsWith('db_')) {
+        if (dataCache[action]) {
+            return res.json(dataCache[action]);
         }
-        activePlayers++;
-
-        return res.json({
-            "status": 1,
-            "success": true,
-            "session_id": `s_${Date.now()}`, "sid": `s_${Date.now()}`,
-            "player_id": Math.floor(1000000 + Math.random() * 9000000), "pid": Math.floor(1000000 + Math.random() * 9000000),
-            "player_data": customPlayerData
-        });
+        // Fallback rápido si el archivo no existe en la carpeta data
+        const fallbackKey = action.replace('db_', '');
+        return res.json({ [fallbackKey]: [] });
     }
 
-    if (action.includes('shop') || action.includes('catalog') || url.includes('shop')) {
-        return res.json({ "status": 1, "success": true, "monsters": universalShop });
-    }
+    // 2. ENRUTAMIENTO DE LOGICA DE JUEGO gs_*
+    switch (action) {
+        case 'gs_player':
+            return res.json({
+                player: {
+                    user_id: 123456,
+                    display_name: "Jugador_Anonimo",
+                    coins: 9999999, // Monedas modificadas para pruebas rápido
+                    diamonds: 5000,
+                    level: 30,
+                    xp: 500000
+                }
+            });
 
-    return res.json({
-        "status": 1,
-        "success": true,
-        "server_version": "3.0.0",
-        "session_id": `s_${Date.now()}`,
-        "player_id": 7777777,
-        "player_data": customPlayerData,
-        "monsters": universalShop
-    });
+        case 'gs_quest':
+            return res.json({ active_quests: [] });
+
+        // Unificamos todas las respuestas vacías obligatorias en una sola línea
+        case 'gs_timed_events':
+        case 'gs_rare_monster_data':
+        case 'gs_epic_monster_data':
+        case 'gs_cant_breed':
+        case 'gs_flip_boards':
+        case 'gs_flip_levels':
+        case 'gs_monster_island_2_island_data':
+            return res.json({ data: [], active: false });
+
+        case 'gs_buy_egg':
+            return res.json({ status: "success", user_egg_id: Date.now() });
+
+        case 'gs_hatch_egg':
+            return res.json({ status: "success", user_monster_id: Date.now() });
+
+        case 'gs_sell_egg':
+        case 'gs_sell_monster':
+        case 'gs_sell_structure':
+            return res.json({ status: "success", reward_coins: 1000 });
+
+        case 'gs_rename_monster':
+            return res.json({ status: "success", name: req.body.name || "Monstruo" });
+
+        case 'gs_move_monster':
+        case 'gs_buy_structure':
+            return res.json({ status: "success" });
+
+        case 'gs_get_code':
+            return res.json({ status: "success", code: req.body.code || "R:GENERIC" });
+
+        case 'test_types':
+            return res.json({ status: "test_ok", types: ["int", "long", "utf-string"] });
+
+        default:
+            // Si el cliente pide un gs_ nuevo, responde éxito para que no se congele
+            return res.json({ status: "success", action_emulated: action });
+    }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Servidor MSM listo en producción sobre puerto ${PORT}.`);
+// Inicialización del servidor
+app.listen(PORT, () => {
+    console.log(`[Servidor] Emulador MSM optimizado corriendo en puerto ${PORT} (Modo: ${process.env.NODE_ENV || 'development'})`);
 });
