@@ -1,0 +1,6 @@
+{
+  "foods": [
+    { "food_id": 1, "name": "Cookie", "cost": 10, "xp_reward": 5, "food_reward": 5, "bake_time": 30 },
+    { "food_id": 2, "name": "Bread", "cost": 100, "xp_reward": 50, "food_reward": 50, "bake_time": 300 }
+  ]
+}
