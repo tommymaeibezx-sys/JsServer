@@ -1,0 +1,6 @@
+{
+  "structures": [
+    { "structure_id": 1, "name": "Castle", "level": 1 },
+    { "structure_id": 2, "name": "Bakery", "level": 1 }
+  ]
+}
