@@ -6,20 +6,27 @@ const path = require('path');
 
 const app = express();
 
-// Dejamos que Railway inyecte su puerto nativo dinámico de forma obligatoria
-const PORT = process.env.PORT || 8080;
+// Si Railway pasa un puerto nulo, indefinido o '0', forzamos el uso del puerto 8080
+let PORT = process.env.PORT;
+if (!PORT || PORT === '0') {
+    PORT = 8080;
+}
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
+// Habilitar compresión Gzip para transferir datos más rápido al APK
 app.use(compression());
+
+// Configuración de Body Parser
 app.use(bodyParser.json({ limit: '1mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
 
-// Ruta raíz que Railway usará para validar el Health Check automáticamente
+// Ruta raíz obligatoria para pasar el Health Check de Railway de forma inmediata
 app.get('/', (req, res) => {
     res.status(200).send('Servidor MSM Activo y Corriendo');
 });
 
+// Sistema de caché en memoria RAM para la carpeta /data
 const dataCache = {};
 const dataDir = path.join(__dirname, 'data');
 
@@ -42,8 +49,11 @@ if (fs.existsSync(dataDir)) {
         }
     });
     console.log(`[Caché] Se cargaron con éxito ${loadedCount} archivos JSON desde /data.`);
+} else {
+    console.warn(`[Alerta Crítica] La carpeta '/data' no fue encontrada en la raíz del proyecto.`);
 }
 
+// Logger ligero para monitorizar peticiones entrantes
 app.use((req, res, next) => {
     if (!IS_PROD) {
         console.log(`[${new Date().toLocaleTimeString()}] Petición entrante: ${req.body.action || req.url}`);
@@ -51,6 +61,7 @@ app.use((req, res, next) => {
     next();
 });
 
+// Ruta unificada para las peticiones del juego
 app.post('/game_request', (req, res) => {
     const { action } = req.body;
 
@@ -120,7 +131,7 @@ app.post('/game_request', (req, res) => {
     }
 });
 
-// Forzamos la escucha en la IP de red local abierta exigida por Railway
+// Vinculación estricta al host 0.0.0.0 requerido por Railway para abrir puertos públicos
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Servidor] Emulador MSM activo en el puerto ${PORT} (Host: 0.0.0.0)`);
 });
