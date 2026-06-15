@@ -1,0 +1,6 @@
+{
+  "monsters": [
+    { "monster_id": 1, "name": "Noggin", "elements": ["earth"], "flags": 0 },
+    { "monster_id": 2, "name": "Mammott", "elements": ["cold"], "flags": 0 }
+  ]
+}
