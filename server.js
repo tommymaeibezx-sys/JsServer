@@ -5,8 +5,8 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-// Forzamos el uso del puerto 3000 si Railway pasa un valor inválido o 0
-const PORT = process.env.PORT && process.env.PORT !== '0' ? process.env.PORT : 3000;
+// Se asigna de forma fija el puerto 3000 ignorando la variable interna de Railway
+const PORT = 3000;
 
 // Omitir logs pesados en producción para mejorar la velocidad
 const IS_PROD = process.env.NODE_ENV === 'production';
@@ -128,8 +128,7 @@ app.post('/game_request', (req, res) => {
     }
 });
 
-// Inicialización del servidor con la IP de red abierta 0.0.0.0
+// Inicialización del servidor fijando de forma estricta el Host y el Puerto
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Servidor] Emulador MSM activo en el puerto ${PORT} (Host: 0.0.0.0)`);
 });
- 
