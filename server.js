@@ -5,8 +5,8 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-// Railway asigna el puerto dinámicamente; si no, usa el 3000 por defecto
-const PORT = process.env.PORT || 3000;
+// Forzamos el uso del puerto 3000 si Railway pasa un valor inválido o 0
+const PORT = process.env.PORT && process.env.PORT !== '0' ? process.env.PORT : 3000;
 
 // Omitir logs pesados en producción para mejorar la velocidad
 const IS_PROD = process.env.NODE_ENV === 'production';
@@ -14,27 +14,21 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 // Habilitar compresión Gzip para transferir datos más rápido al APK
 app.use(compression());
 
-// Configuración óptima de Body Parser
+// Configuración de Body Parser
 app.use(bodyParser.json({ limit: '1mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
 
-// ===================================================
-// RUTA DE CONTROL DE SALUD (HEALTH CHECK PARA RAILWAY)
-// ===================================================
-// Esta ruta evita el error 'Stopping Container' al responder con éxito a Railway
+// Ruta de control de salud para evitar el error 'Stopping Container'
 app.get('/', (req, res) => {
     res.status(200).send('Servidor MSM Activo y Corriendo');
 });
 
-// ===================================================
-// SISTEMA DE CACHÉ EN MEMORIA (PRECARGA DE /DATA)
-// ===================================================
+// Sistema de caché en memoria RAM para la carpeta /data
 const dataCache = {};
 const dataDir = path.join(__dirname, 'data');
 
 console.log(`[Sistema] Buscando archivos de configuración en: ${dataDir}`);
 
-// Leer la carpeta /data una sola vez al arrancar el servidor
 if (fs.existsSync(dataDir)) {
     const files = fs.readdirSync(dataDir);
     let loadedCount = 0;
@@ -56,7 +50,7 @@ if (fs.existsSync(dataDir)) {
     console.warn(`[Alerta Crítica] La carpeta '/data' no fue encontrada en la raíz del proyecto.`);
 }
 
-// Logger ultra-ligero para desarrollo
+// Logger ligero para las peticiones
 app.use((req, res, next) => {
     if (!IS_PROD) {
         console.log(`[${new Date().toLocaleTimeString()}] Petición entrante: ${req.body.action || req.url}`);
@@ -64,9 +58,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// ===================================================
-// RUTA UNIFICADA DE PETICIONES (LATENCIA BAJA)
-// ===================================================
+// Ruta unificada para las peticiones del juego
 app.post('/game_request', (req, res) => {
     const { action } = req.body;
 
@@ -74,17 +66,14 @@ app.post('/game_request', (req, res) => {
         return res.status(400).json({ error: "Falta el parámetro 'action'" });
     }
 
-    // 1. RESPUESTA DESDE MEMORIA RAM PARA PETICIONES db_*
     if (action.startsWith('db_')) {
         if (dataCache[action]) {
             return res.json(dataCache[action]);
         }
-        // Fallback rápido si el archivo no existe dentro de /data
         const fallbackKey = action.replace('db_', '');
         return res.json({ [fallbackKey]: [] });
     }
 
-    // 2. ENRUTAMIENTO DE LÓGICA DE JUEGO gs_*
     switch (action) {
         case 'gs_player':
             return res.json({
@@ -139,7 +128,8 @@ app.post('/game_request', (req, res) => {
     }
 });
 
-// Inicialización del servidor vinculando la IP de red pública requerida por Railway
+// Inicialización del servidor con la IP de red abierta 0.0.0.0
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Servidor] Emulador MSM activo en el puerto ${PORT} (Host: 0.0.0.0)`);
 });
+ 
