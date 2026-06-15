@@ -1,12 +1,24 @@
 {
-  "name": "msm-official-v3-backend",
-  "version": "3.0.0",
+  "name": "msm-private-server-optimized",
+  "version": "1.1.0",
+  "description": "Servidor de emulación optimizado para My Singing Monsters",
   "main": "server.js",
-  "type": "commonjs",
   "scripts": {
-    "start": "node server.js"
+    "start": "NODE_ENV=production node server.js"
   },
+  "keywords": [
+    "msm",
+    "private-server",
+    "emulator"
+  ],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
+    "body-parser": "^1.20.2",
+    "compression": "^1.7.4",
     "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
