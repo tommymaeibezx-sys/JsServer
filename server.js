@@ -24,14 +24,20 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '5mb' }));
 // MIDDLEWARE DE RASTREO EXHAUSTIVO PARA EL APK
 // ===================================================
 app.use((req, res, next) => {
-    console.log(`\n--- [NUEVA PETICIÓN DETECTADA] ---`);
-    console.log(`Hora: [${new Date().toLocaleTimeString()}] | Método: ${req.method} | Ruta: ${req.url}`);
-    
     const action = req.body.action || req.query.action;
-    if (action) console.log(`Acción solicitada: ${action}`);
-
+    
+    console.log(`\n==================================================`);
+    console.log(`📩 [APK REQ] -> Petición entrante de My Singing Monsters`);
+    console.log(`Hora: [${new Date().toLocaleTimeString()}] | Método: ${req.method} | Ruta: ${req.url}`);
+    if (action) {
+        console.log(`Acción Detectada: "${action}"`);
+    } else {
+        console.log(`Aviso: Petición sin parámetro "action" explícito.`);
+    }
+    console.log(`==================================================`);
+    
     if (Object.keys(req.body).length > 0 && action && !action.startsWith('db_')) {
-        console.log(`Cuerpo del Body:`, JSON.stringify(req.body, null, 2));
+        console.log(`📦 [Body Data]:`, JSON.stringify(req.body, null, 2));
     }
     next();
 });
@@ -50,13 +56,12 @@ const cargarTodasLasBasesDeDatos = () => {
         let loadedCount = 0;
 
         files.forEach(file => {
-            // Filtra y procesa únicamente archivos con extensión .json
             if (file.endsWith('.json')) {
-                const actionName = path.basename(file, '.json'); // Quita el ".json" para obtener el nombre de la acción
+                const actionName = path.basename(file, '.json');
                 try {
                     const content = fs.readFileSync(path.join(dataDir, file), 'utf8');
                     dataCache[actionName] = JSON.parse(content);
-                    console.log(`   [✓] Cargado con éxito: ${file} -> Clave interna: "${actionName}"`);
+                    console.log(`   [✓] Cargado desde GitHub: ${file} -> Clave interna: "${actionName}"`);
                     loadedCount++;
                 } catch (err) {
                     console.error(`   [X] Error crítico parseando /data/${file}:`, err.message);
@@ -83,26 +88,23 @@ const handleGameTraffic = (req, res) => {
         return res.json({ status: "alive", message: "En espera de parámetros del APK" });
     }
 
-    // 1. INTERCEPTOR UNIVERSAL (Busca en la caché masiva de archivos JSON)
-    // Si la acción es 'db_monsters' y tienes 'db_monsters.json', se envía de inmediato.
+    // 1. INTERCEPTOR UNIVERSAL (Busca en la caché masiva de archivos JSON de tu GitHub)
     if (dataCache[action]) {
-        console.log(`[DB HIT] Despachando JSON real para la acción: ${action}`);
+        console.log(`🟢 [DB HIT] Sincronizado: Despachando archivo real para la acción [${action}]`);
         return res.json(dataCache[action]);
     }
 
     // 2. FALLBACK PARA BASE DE DATOS NO MAPEADAS AÚN
-    // Si el APK te pide un 'db_islands_themes' y no tienes el JSON en GitHub,
-    // el servidor responde de manera segura para evitar que el juego se cierre (Crash).
     if (action.startsWith('db_')) {
-        console.log(`[DB MISS] No se encontró /data/${action}.json. Creando respuesta defensiva vacía.`);
+        console.log(`🟡 [DB MISS] Alerta: No se encontró el archivo /data/${action}.json en GitHub. Enviando respuesta vacía segura.`);
         const fallbackKey = action.replace('db_', '');
         return res.json({ [fallbackKey]: [] });
     }
 
     // 3. SECCIÓN DE ACCIONES DE FLUJO DE JUEGO (gs_)
-    // Controladores estáticos obligatorios mientras terminas de modular el progreso del jugador
     switch (action) {
         case 'gs_player':
+            console.log(`👤 [GAMEPLAY] Despachando perfil del jugador para: ${action}`);
             return res.json({
                 player: {
                     user_id: 123456,
@@ -118,6 +120,7 @@ const handleGameTraffic = (req, res) => {
             });
 
         case 'game_settings':
+            console.log(`⚙️  [SYSTEM] Enviando configuraciones globales del cliente.`);
             return res.json({ status: "success", settings: { maintenance: false, client_version_required: "1.0.0", is_available: true } });
 
         case 'gs_mailbox_get_messages':
@@ -149,12 +152,12 @@ const handleGameTraffic = (req, res) => {
             return res.json({ status: "test_ok", types: ["int", "long", "utf-string"] });
 
         default:
-            console.log(`[MOCK] Acción "${action}" emulada de forma genérica.`);
+            console.log(`🔵 [MOCK GENÉRICO] Respuesta emulada automáticamente para la acción: "${action}"`);
             return res.json({ status: "success", action_emulated: action });
     }
 };
 
-// Mapeo de métodos de entrada requeridos por el binario nativo (.so)
+// Mapeo de métodos de entrada requeridos por la librería nativa del APK
 app.post('/game_request', handleGameTraffic);
 app.post('/', handleGameTraffic);
 app.get('/game_request', handleGameTraffic);
