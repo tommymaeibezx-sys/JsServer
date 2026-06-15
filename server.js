@@ -11,20 +11,37 @@ app.use(compression());
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
-// Health Check para monitoreo de Railway
-app.get('/', (req, res) => res.status(200).send('Servidor MSM Activo | Regeneración Automática Lista'));
+// Health Check limpio para Railway
+app.get('/', (req, res) => res.status(200).send('Servidor MSM Activo | Logger + Interceptor Completo'));
+
+// ==================================================================
+// 🔎 1. LOGGER DE CONTROL TOTAL (MUESTRA CUALQUIER PETICIÓN EN ENTRADA)
+// ==================================================================
+app.use((req, res, next) => {
+    const action = req.body.action || req.query.action || req.body.cmd || req.query.cmd || "Petición Secundaria/Directa";
+    
+    console.log(`\n==================================================================`);
+    console.log(`📩 [APK REQ] -> [${new Date().toLocaleTimeString()}]`);
+    console.log(`   📌 RUTA:   ${req.method} ${req.url}`);
+    console.log(`   🎬 ACCIÓN: "${action}"`);
+    
+    if (Object.keys(req.body).length > 0) {
+        console.log(`   📦 BODY (DATOS):`, JSON.stringify(req.body, null, 2));
+    } else {
+        console.log(`   📦 BODY (DATOS): [Sin JSON / Vacío]`);
+    }
+    console.log(`==================================================================`);
+    next();
+});
 
 // ===================================================
 // CONFIGURACIÓN DE AJUSTES Y VARIABLES DE RAM
 // ===================================================
 const activeUsers = {}; 
-const MAX_ONLINE_PLAYERS = 30; // Límite estricto de aforo
-
-// Umbral de inactividad máxima (Ejemplo: 12 horas)
+const MAX_ONLINE_PLAYERS = 30; 
 const MAX_INACTIVITY_HOURS = 12; 
 const INACTIVITY_TTL = MAX_INACTIVITY_HOURS * 60 * 60 * 1000; 
 
-// Credenciales del Administrador VIP
 const ADMIN_USER = "msmMod";
 const ADMIN_PASS = "123";
 
@@ -38,32 +55,20 @@ activeUsers[ADMIN_USER] = {
     last_seen: Infinity
 };
 
-// Helper para calcular cuántas cuentas no administrativas ocupan espacio en RAM
 const getOnlineCount = () => {
-    return Object.keys(activeUsers).filter(key => key !== ADMIN_USER).length;
+    return Object.keys(activeUsers).filter(key => key !== ADMIN_USER && key !== 'undefined').length;
 };
 
-// ===================================================
-// DAEMON DE PURGA AUTOMÁTICA POR INACTIVIDAD
-// ===================================================
+// Daemon de purga por inactividad absoluta
 setInterval(() => {
     const ahora = Date.now();
-    let eliminados = 0;
-
     for (const key in activeUsers) {
         if (activeUsers[key].is_admin) continue;
-
-        // Si superó el tiempo límite de inactividad, se remueve de la RAM
         if (ahora - activeUsers[key].last_seen > INACTIVITY_TTL) {
             delete activeUsers[key];
-            eliminados++;
         }
     }
-    
-    if (eliminados > 0) {
-        console.log(`🧹 [Auto-Purga] Se liberaron ${eliminados} cuentas inactivas. Cupos disponibles: ${MAX_ONLINE_PLAYERS - getOnlineCount()}`);
-    }
-}, 10 * 60 * 1000); // Inspección cada 10 minutos
+}, 10 * 60 * 1000);
 
 // ===================================================
 // INTERCEPTOR DE BASES DE DATOS DE GITHUB (db_)
@@ -84,106 +89,136 @@ const cargarTodasLasBasesDeDatos = () => {
                 }
             }
         });
+        console.log(`[Caché GITHUB] Tablas de datos indexadas correctamente.`);
     } catch (e) { console.error("Error cargando archivos JSON:", e.message); }
 };
 
 // ===================================================
-// CONTROLADOR CENTRAL DE PETICIONES
+// 🛠️ 2. CONTROLADOR CENTRAL E INTERCEPTOR ANTI-TRABAS
 // ===================================================
 const handleGameTraffic = (req, res) => {
-    const action = req.body.action || req.query.action;
-    const username = req.body.username || req.query.username;
+    const action = req.body.action || req.query.action || req.body.cmd || req.query.cmd;
+    const username = req.body.username ? String(req.body.username).trim() : null;
 
-    if (!action) return res.json({ status: "alive" });
-
-    // Actualizar pulso de actividad si la sesión sigue viva en RAM
+    // Renovar actividad si la sesión sigue viva en RAM
     if (username && activeUsers[username]) {
         activeUsers[username].last_seen = Date.now();
     }
 
-    // Despacho de catálogos db_
-    if (dataCache[action]) return res.json(dataCache[action]);
-    if (action.startsWith('db_')) {
+    // Despacho prioritario de catálogos db_ reales de GitHub
+    if (action && dataCache[action]) {
+        console.log(`🟢 [RESPUESTA] Despachando JSON real de GitHub para: ${action}`);
+        return res.json(dataCache[action]);
+    }
+    if (action && action.startsWith('db_')) {
+        console.log(`🟡 [RESPUESTA] Fallback seguro (vacío) para base de datos: ${action}`);
         const fallbackKey = action.replace('db_', '');
         return res.json({ [fallbackKey]: [] });
     }
 
-    // FLUJO DE CONTROL DE JUGADORES (gs_player)
+    // FLUJO PRINCIPAL DE LOGIN (gs_player)
     if (action === 'gs_player') {
         const password = req.body.password || req.query.password;
-        const isAnonymous = req.body.anonymous || req.query.anonymous === 'true';
+        const isAnonymous = req.body.anonymous || req.query.anonymous === 'true' || req.query.anonymous === 1;
 
-        // 1. Validar cuenta fija del Administrador
         if (username === ADMIN_USER && password === ADMIN_PASS) {
-            console.log(`👑 [VIP LOGIN] Administrador conectado.`);
+            console.log(`👑 [RESPUESTA] Acceso concedido al Administrador.`);
             return res.json({ player: activeUsers[ADMIN_USER] });
         }
 
-        // 2. Jugador existente y activo en RAM -> Entra directo
         if (username && activeUsers[username]) {
             activeUsers[username].last_seen = Date.now();
-            console.log(`🔄 [RECONEXIÓN] Retorna el usuario: "${username}".`);
+            console.log(`🔄 [RESPUESTA] Reconexión exitosa para: "${username}".`);
             return res.json({ player: activeUsers[username] });
         }
 
-        // 3. CONTROL DE REGENERACIÓN O REGISTRO NUEVO
-        // Si el usuario envió un nombre de cuenta pero NO existe en la RAM (porque se borró o es nuevo)
-        // O si está iniciando una sesión anónima desde cero:
+        // Control de aforo estricto para cuidar el 1GB de RAM
         const jugadoresOnline = getOnlineCount();
         if (jugadoresOnline >= MAX_ONLINE_PLAYERS) {
-            console.log(`⚠️ [BLOQUEO] Servidor lleno (${jugadoresOnline}/${MAX_ONLINE_PLAYERS}). Intento rechazado.`);
-            return res.json({ 
-                status: "error", 
-                message: `SERVIDOR SATURADO. Capacidad máxima alcanzada (30/30). Vuelve a intentarlo más tarde.` 
+            console.log(`⚠️ [RESPUESTA] Servidor saturado (${jugadoresOnline}/${MAX_ONLINE_PLAYERS}). Enviando cuenta fantasma de aviso.`);
+            return res.json({
+                player: {
+                    user_id: 777777,
+                    display_name: "SERVER_LLENO_INTENTA_LUEGO",
+                    coins: 0, diamonds: 0, level: 1, last_seen: Date.now()
+                }
             });
         }
 
-        // Determinar qué identificador usar para la cuenta
         let cuentaKey = username;
         let esRegenerada = true;
 
-        if (isAnonymous || !cuentaKey) {
+        if (isAnonymous || !cuentaKey || cuentaKey === 'undefined') {
             const tempId = Math.floor(100000 + Math.random() * 900000);
             cuentaKey = `anon_${tempId}`;
             esRegenerada = false;
         }
 
-        // Crear la cuenta nueva o regenerada en blanco en este preciso segundo
         activeUsers[cuentaKey] = {
             user_id: Math.floor(100000 + Math.random() * 900000),
-            display_name: esRegenerada ? `Regen_${cuentaKey.substring(0, 5)}` : `Monstruo_${cuentaKey.replace('anon_', '')}`,
-            coins: 10000,
-            diamonds: 100,
+            display_name: esRegenerada ? `Regen_${cuentaKey.substring(0, 4)}` : `Monstruo_${cuentaKey.replace('anon_', '')}`,
+            coins: 50000,
+            diamonds: 500,
             level: 1,
+            xp: 0,
+            starpower: 0,
+            relics: 0,
+            keys: 0,
             is_admin: false,
             last_seen: Date.now()
         };
 
-        if (esRegenerada) {
-            console.log(`♻️ [REGENERACIÓN] La cuenta "${cuentaKey}" fue purgada anteriormente. Creando un perfil limpio nuevo.`);
-        } else {
-            console.log(`🆕 [RAM ASIGNADA] Nueva sesión anónima registrada: "${cuentaKey}".`);
-        }
-
-        console.log(`📈 Estado de aforo actual: ${getOnlineCount()}/${MAX_ONLINE_PLAYERS} jugadores.`);
+        console.log(`🚀 [RESPUESTA] Perfil exitoso devuelto al APK para: "${cuentaKey}"`);
         return res.json({ player: activeUsers[cuentaKey], temp_session_key: cuentaKey });
     }
 
-    // Configuración general por defecto
+    // SWITCH DETALLADO DE PETICIONES SECUNDARIAS NATIVAS DE C++ (Big Blue Bubble)
     switch (action) {
         case 'game_settings':
             return res.json({ status: "success", settings: { maintenance: false, client_version_required: "1.0.0", is_available: true } });
+            
+        case 'gs_is_registered':
+        case 'check_username':
+            return res.json({ status: "success", registered: true, exists: true });
+
+        case 'log_client_error':
+        case 'client_log':
+        case 'analytics_event':
+            return res.json({ status: "success", logged: true });
+
+        case 'get_eligible_offers':
+        case 'get_store_products':
+        case 'sync_purchases':
+            return res.json({ status: "success", products: [], offers: [], purchases: [] });
+
+        case 'get_ad_settings':
+        case 'ad_config':
+            return res.json({ status: "success", ads_enabled: false, config: {} });
+
         default:
-            return res.json({ status: "success", action_emulated: action });
+            // INTERCEPTOR DE SEGURIDAD ABSOLUTA
+            // Si libmonsters.so inventa o pide una acción oculta, esto analiza la estructura y responde con éxito preventivo
+            console.log(`🔵 [MOCK DEFENSIVO] Respondiendo éxito preventivo a la acción: "${action || 'Invisibles/Rutas Cortas'}"`);
+            
+            if (req.body.list || req.url.includes('list')) {
+                return res.json([]);
+            }
+            return res.json({ status: "success", code: 1, message: "OK", data: {} });
     }
 };
 
+// Enlazamos todas las sub-rutas dinámicas que el APK suele olfatear al arrancar
 app.post('/game_request', handleGameTraffic);
+app.post('/publicidad', handleGameTraffic);
+app.post('/log', handleGameTraffic);
 app.post('/', handleGameTraffic);
+
 app.get('/game_request', handleGameTraffic);
+app.get('/publicidad', handleGameTraffic);
+app.get('/log', handleGameTraffic);
+app.get('/', handleGameTraffic);
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 [Servidor MSM] Sistema de regeneración cíclica online en el puerto ${PORT}.`);
-    console.log(`🛡️ Regla activa: Cuentas inactivas por más de ${MAX_INACTIVITY_HOURS} horas se limpian. Al regresar, se les otorga una nueva automáticamente.`);
+    console.log(`\n🚀 [Servidor MSM] Combo de Logger + Interceptor Unificado y Activo en Puerto: ${PORT}`);
     setImmediate(cargarTodasLasBasesDeDatos);
 });
