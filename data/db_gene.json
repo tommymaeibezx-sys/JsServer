@@ -1,0 +1,9 @@
+{
+  "genes": [
+    { "gene_id": 1, "name": "Plant", "icon": "gene_plant" },
+    { "gene_id": 2, "name": "Cold", "icon": "gene_cold" },
+    { "gene_id": 3, "name": "Air", "icon": "gene_air" },
+    { "gene_id": 4, "name": "Water", "icon": "gene_water" },
+    { "gene_id": 5, "name": "Earth", "icon": "gene_earth" }
+  ]
+}
